@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Jdom Plug-in
+Bundle-SymbolicName: org.jdom
+Bundle-Version: 1.0
+Bundle-ClassPath: .
+Bundle-Vendor: org.jdom
+Export-Package: org.jdom,
+ org.jdom.adapters,
+ org.jdom.filter,
+ org.jdom.input,
+ org.jdom.output,
+ org.jdom.transform,
+ org.jdom.xpath
+Bundle-ActivationPolicy: lazy

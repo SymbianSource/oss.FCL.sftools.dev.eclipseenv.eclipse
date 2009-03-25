@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Refactoring Tests Plug-in
+Bundle-SymbolicName: org.eclipse.cdt.refactoring.tests; singleton:=true
+Bundle-Version: 5.0.0.qualifier
+Bundle-ClassPath: tests.jar
+Bundle-Vendor: Eclipse.org
+Bundle-ActivationPolicy: lazy
+Bundle-RequiredExecutionEnvironment: J2SE-1.4
