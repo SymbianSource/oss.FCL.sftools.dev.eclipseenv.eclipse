@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: ROME Fetcher Plug-in
+Bundle-SymbolicName: com.sun.syndication.fetcher
+Bundle-Version: 0.9
+Bundle-ClassPath: .
+Bundle-Vendor: Sun Microsystems
+Export-Package: com.sun.syndication.fetcher,
+ com.sun.syndication.fetcher.impl,
+ com.sun.syndication.fetcher.samples
+Bundle-ActivationPolicy: lazy
+Require-Bundle: org.jdom,
+ com.sun.syndication
