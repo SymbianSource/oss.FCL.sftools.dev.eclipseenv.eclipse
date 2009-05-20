@@ -26,6 +26,7 @@ import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.ui.model.IWorkbenchAdapter;
 
+import org.eclipse.cdt.core.CCorePlugin;
 import org.eclipse.cdt.core.model.CModelException;
 import org.eclipse.cdt.core.model.CoreModel;
 import org.eclipse.cdt.core.model.IArchive;
@@ -344,6 +345,7 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 			
 		List<ICElement> list= new ArrayList<ICElement>();
 		ICElement[] children = cproject.getChildren();
+
 		for (int i= 0; i < children.length; i++) {
 			ICElement child = children[i];
 			if (child instanceof ISourceRoot && child.getResource().getType() == IResource.PROJECT) {
@@ -351,8 +353,12 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 				ICElement[] c2 = ((ISourceRoot)child).getChildren();
 				for (int k = 0; k < c2.length; ++k)
 					list.add(c2[k]);
-			} else
+			} else if (CCorePlugin.showSourceRootsAtTopOfProject()) {
 				list.add(child);
+			} else if (child instanceof ISourceRoot && 
+						child.getResource().getParent().equals(cproject.getProject())) {	
+				list.add(child);
+			}
 		}
 
 		Object[] objects = list.toArray();
@@ -483,16 +489,19 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 			// folder we have to exclude it as a normal child.
 			if (o instanceof IFolder) {
 				IFolder folder = (IFolder)o;
-				boolean found = false;
+				ISourceRoot root = null;
 				for (int j = 0; j < roots.length; j++) {
 					if (roots[j].getPath().equals(folder.getFullPath())) {
-						found = true;
+						root = roots[j];
 						break;
 					}
 				}
 				// it is a sourceRoot skip it.
-				if (found) {
-					continue;
+				if (root != null) {
+					if (CCorePlugin.showSourceRootsAtTopOfProject())
+						continue;
+					else
+						o = root;
 				}
 			} else if (o instanceof IFile){
 				boolean found = false;
