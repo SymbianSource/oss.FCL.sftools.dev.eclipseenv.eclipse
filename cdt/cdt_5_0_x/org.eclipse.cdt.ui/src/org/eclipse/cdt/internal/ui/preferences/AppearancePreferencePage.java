@@ -133,16 +133,16 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		new Separator().doFillIntoGrid(result, nColumns);
 		
 		fCViewSeparateHeaderAndSource.doFillIntoGrid(result, nColumns);
-		
-		new Separator().doFillIntoGrid(result, nColumns);
-		fShowSourceRootsAtTopOfProject.doFillIntoGrid(result, nColumns);
-		
 		String noteTitle= PreferencesMessages.AppearancePreferencePage_note;
 		String noteMessage= PreferencesMessages.AppearancePreferencePage_preferenceOnlyForNewViews; 
 		Composite noteControl= createNoteComposite(JFaceResources.getDialogFont(), result, noteTitle, noteMessage);
 		GridData gd= new GridData(GridData.HORIZONTAL_ALIGN_FILL);
 		gd.horizontalSpan= 2;
 		noteControl.setLayoutData(gd);
+		
+		
+		new Separator().doFillIntoGrid(result, nColumns);
+		fShowSourceRootsAtTopOfProject.doFillIntoGrid(result, nColumns);
 		
 		initFields();
 		

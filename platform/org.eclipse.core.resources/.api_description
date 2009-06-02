@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="Core Resource Management" version="1.1">
+    <plugin id="org.eclipse.core.resources"/>
+    <package name="org.eclipse.core.resources">
+        <type implement="false" name="ICommand"/>
+        <type implement="false" name="IContainer"/>
+        <type implement="false" name="IFile"/>
+        <type implement="false" name="IFileState"/>
+        <type implement="false" name="IFolder"/>
+        <type implement="false" name="IMarker"/>
+        <type implement="false" name="IMarkerDelta"/>
+        <type implement="false" name="IPathVariableChangeEvent"/>
+        <type implement="false" name="IPathVariableManager"/>
+        <type implement="false" name="IProject"/>
+        <type implement="false" name="IProjectDescription"/>
+        <type implement="false" name="IProjectNatureDescriptor"/>
+        <type implement="false" name="IResource"/>
+        <type implement="false" name="IResourceChangeEvent"/>
+        <type implement="false" name="IResourceDelta"/>
+        <type implement="false" name="IResourceProxy"/>
+        <type implement="false" name="IResourceRuleFactory"/>
+        <type implement="false" name="IResourceStatus"/>
+        <type implement="false" name="ISaveContext"/>
+        <type implement="false" name="ISavedState"/>
+        <type implement="false" name="ISynchronizer"/>
+        <type implement="false" name="IWorkspace"/>
+        <type implement="false" name="IWorkspaceDescription"/>
+        <type implement="false" name="IWorkspaceRoot"/>
+        <type extend="false" name="ResourceAttributes"/>
+        <type instantiate="false" name="ResourcesPlugin"/>
+    </package>
+    <package name="org.eclipse.core.resources.mapping">
+        <type implement="false" name="IModelProviderDescriptor"/>
+    </package>
+    <package name="org.eclipse.core.resources.refresh">
+        <type implement="false" name="IRefreshResult"/>
+    </package>
+    <package name="org.eclipse.core.resources.team">
+        <type implement="false" name="IResourceTree"/>
+    </package>
+</component>
