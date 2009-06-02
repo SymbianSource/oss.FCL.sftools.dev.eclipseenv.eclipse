@@ -15,6 +15,7 @@ import java.io.*;
 import java.net.URI;
 import java.util.*;
 import org.eclipse.core.filesystem.*;
+import org.eclipse.core.internal.refresh.RefreshJob;
 import org.eclipse.core.internal.resources.*;
 import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.internal.utils.*;
@@ -731,6 +732,26 @@ public class FileSystemResourceManager implements ICoreConstants, IManager {
 	}
 
 	public boolean refresh(IResource target, int depth, boolean updateAliases, IProgressMonitor monitor) throws CoreException {
+		long startTimeMs = System.currentTimeMillis();
+		boolean result = refreshImpl(target, depth, updateAliases, monitor);
+		if (!RefreshJob.isRefreshing()) {
+			long totalMs = System.currentTimeMillis() - startTimeMs;
+			StringBuffer sb = new StringBuffer();
+			sb.append("Refresh called on ");
+			sb.append(target.getFullPath());
+			sb.append(" completed in : ");
+			sb.append(totalMs);
+			sb.append("ms");
+			ResourcesPlugin.writeRefreshLog(sb.toString());
+			StackTraceElement[] trace = Thread.currentThread().getStackTrace();
+			for (int i = 2; i < trace.length; i++) { // skip the getStackTrace and dump calls
+				ResourcesPlugin.writeRefreshLog("\tat " + trace[i]);
+			}
+		}
+		return result;
+	}
+		
+	private boolean refreshImpl(IResource target, int depth, boolean updateAliases, IProgressMonitor monitor) throws CoreException {
 		switch (target.getType()) {
 			case IResource.ROOT :
 				return refreshRoot((IWorkspaceRoot) target, depth, updateAliases, monitor);
@@ -787,7 +808,7 @@ public class FileSystemResourceManager implements ICoreConstants, IManager {
 			// drop the depth by one level since processing the root counts as one level.
 			depth = depth == IResource.DEPTH_ONE ? IResource.DEPTH_ZERO : depth;
 			for (int i = 0; i < projects.length; i++)
-				changed |= refresh(projects[i], depth, updateAliases, Policy.subMonitorFor(monitor, 1));
+				changed |= refreshImpl(projects[i], depth, updateAliases, Policy.subMonitorFor(monitor, 1));
 			return changed;
 		} finally {
 			monitor.done();

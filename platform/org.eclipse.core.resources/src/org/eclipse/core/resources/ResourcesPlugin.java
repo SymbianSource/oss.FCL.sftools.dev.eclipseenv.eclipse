@@ -18,6 +18,8 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
+import java.util.logging.Level;
+
 /**
  * The plug-in runtime class for the Resources plug-in.  This is
  * the starting point for all workspace and resource manipulation.
@@ -29,6 +31,7 @@ import org.osgi.framework.BundleContext;
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 public final class ResourcesPlugin extends Plugin {
+
 	/**
 	 * Unique identifier constant (value <code>"org.eclipse.core.resources"</code>)
 	 * for the standard Resources plug-in.
@@ -267,6 +270,10 @@ public final class ResourcesPlugin extends Plugin {
 	 */
 	private static Workspace workspace = null;
 
+	
+	private static final String REFRESH_LOG_ID = ".refresh.log";
+	private DiagnosticLog refreshLog;
+	
 	/** 
 	 * Constructs an instance of this plug-in runtime class.
 	 * <p>
@@ -376,5 +383,19 @@ public final class ResourcesPlugin extends Plugin {
 		IStatus result = workspace.open(null);
 		if (!result.isOK())
 			getLog().log(result);
+	}
+	
+	public static void writeRefreshLog(String s) {
+		if (!plugin.getPluginPreferences().getBoolean(PI_RESOURCES + REFRESH_LOG_ID))
+			return;
+		
+		if (plugin.refreshLog == null) {
+			IPath path = getWorkspace().getRoot().getLocation().append("refresh.log");
+			plugin.refreshLog = new DiagnosticLog("refresh.log", PI_RESOURCES + REFRESH_LOG_ID, path.toOSString());
+			plugin.refreshLog.getLogger().setLevel(Level.INFO);
+		}
+
+		plugin.refreshLog.getLogger().info(s);
+		System.out.println(s);
 	}
 }
