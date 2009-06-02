@@ -29,6 +29,6 @@ public interface IExecutableImporter {
 	 */
 	int getPriority(String[] fileNames);
 
-	public abstract boolean importExecutables(String[] fileNames, IProgressMonitor monitor);
+	public boolean importExecutables(String[] fileNames, IProgressMonitor monitor);
 
 }

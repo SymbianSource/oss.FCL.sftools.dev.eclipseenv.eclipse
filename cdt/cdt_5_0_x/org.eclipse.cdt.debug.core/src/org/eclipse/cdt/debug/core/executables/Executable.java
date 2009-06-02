@@ -131,7 +131,7 @@ public class Executable extends PlatformObject {
 		return super.getAdapter(adapter);
 	}
 
-	public TranslationUnit[] getSourceFiles(IProgressMonitor monitor) {
+	public synchronized TranslationUnit[] getSourceFiles(IProgressMonitor monitor) {
 		
 		if (!refreshSourceFiles)
 			return sourceFiles.toArray(new TranslationUnit[sourceFiles.size()]) ;
@@ -229,7 +229,7 @@ public class Executable extends PlatformObject {
 		this.refreshSourceFiles = refreshSourceFiles;
 	}
 
-	public String getOriginalLocation(ITranslationUnit tu) {
+	public synchronized String getOriginalLocation(ITranslationUnit tu) {
 		String orgLocation = remappedPaths.get(tu);
 		if (orgLocation == null)
 			orgLocation = tu.getLocation().toOSString();
