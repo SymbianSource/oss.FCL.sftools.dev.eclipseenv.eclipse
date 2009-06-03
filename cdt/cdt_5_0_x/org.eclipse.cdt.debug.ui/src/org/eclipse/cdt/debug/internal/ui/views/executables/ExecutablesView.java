@@ -239,9 +239,9 @@ public class ExecutablesView extends ViewPart {
 		final SashForm sashForm = new SashForm(container, SWT.NONE);
 
 		// Create the two sub viewers.
-		executablesViewer = new ExecutablesViewer(this, sashForm, SWT.FULL_SELECTION + SWT.BORDER + SWT.MULTI);
+		executablesViewer = new ExecutablesViewer(this, sashForm, SWT.FULL_SELECTION | SWT.BORDER | SWT.MULTI);
 		ExecutablesManager.getExecutablesManager().addExecutablesChangeListener(executablesViewer);
-		sourceFilesViewer = new SourceFilesViewer(this, sashForm, SWT.BORDER);
+		sourceFilesViewer = new SourceFilesViewer(this, sashForm, SWT.BORDER | SWT.MULTI);
 
 		sashForm.setWeights(new int[] { 1, 1 });
 
@@ -285,16 +285,17 @@ public class ExecutablesView extends ViewPart {
 								Executable executable = (Executable)firstElement;
 								this.setName(Messages.ExecutablesView_Finding_Sources_Job_Name + executable.getName());
 								executable.getSourceFiles(monitor);
-
-								UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
-									@Override
-									public IStatus runInUIThread(IProgressMonitor monitor) {
-										sourceFilesViewer.setInput(firstElement);
-										sourceFilesViewer.packColumns();
-										return Status.OK_STATUS;
-									}};
-								selectExeUIJob.schedule();								
 							}
+							// selection could be empty, so do this no matter what to update the source
+							// files viewer
+							UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
+								@Override
+								public IStatus runInUIThread(IProgressMonitor monitor) {
+									sourceFilesViewer.setInput(firstElement);
+									sourceFilesViewer.packColumns();
+									return Status.OK_STATUS;
+								}};
+							selectExeUIJob.schedule();								
 							return Status.OK_STATUS;
 						}};
 					setectExeJob.schedule();
