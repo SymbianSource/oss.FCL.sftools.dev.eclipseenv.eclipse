@@ -225,6 +225,8 @@ public class ExecutablesView extends ViewPart {
 	private Action configureColumnsAction;
 
 	private IMemento memento;
+	
+	private IStructuredSelection oldSelection;
 
 	/**
 	 * Create contents of the Executables View
@@ -272,33 +274,38 @@ public class ExecutablesView extends ViewPart {
 				ISelection newSelection = event.getSelection();
 				if (newSelection instanceof IStructuredSelection) {
 					
-					// update the remove action
-					removeAction.setEnabled(!newSelection.isEmpty());
-					
-					final Object firstElement = ((IStructuredSelection) newSelection).getFirstElement();
-					
-					Job setectExeJob = new Job(Messages.ExecutablesView_Select_Executable) {
+					if (oldSelection == null || !oldSelection.equals(newSelection))
+					{
+						// update the remove action
+						removeAction.setEnabled(!newSelection.isEmpty());
+						
+						final Object firstElement = ((IStructuredSelection) newSelection).getFirstElement();
+						
+						Job setectExeJob = new Job(Messages.ExecutablesView_Select_Executable) {
 
-						@Override
-						protected IStatus run(IProgressMonitor monitor) {
-							if (firstElement instanceof Executable) {
-								Executable executable = (Executable)firstElement;
-								this.setName(Messages.ExecutablesView_Finding_Sources_Job_Name + executable.getName());
-								executable.getSourceFiles(monitor);
-							}
-							// selection could be empty, so do this no matter what to update the source
-							// files viewer
-							UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
-								@Override
-								public IStatus runInUIThread(IProgressMonitor monitor) {
-									sourceFilesViewer.setInput(firstElement);
-									sourceFilesViewer.packColumns();
-									return Status.OK_STATUS;
-								}};
-							selectExeUIJob.schedule();								
-							return Status.OK_STATUS;
-						}};
-					setectExeJob.schedule();
+							@Override
+							protected IStatus run(IProgressMonitor monitor) {
+								if (firstElement instanceof Executable) {
+									Executable executable = (Executable)firstElement;
+									this.setName(Messages.ExecutablesView_Finding_Sources_Job_Name + executable.getName());
+									executable.getSourceFiles(monitor);
+								}
+								// selection could be empty, so do this no matter what to update the source
+								// files viewer
+								UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
+									@Override
+									public IStatus runInUIThread(IProgressMonitor monitor) {
+										sourceFilesViewer.setInput(firstElement);
+										sourceFilesViewer.packColumns();
+										return Status.OK_STATUS;
+									}};
+								selectExeUIJob.schedule();								
+								return Status.OK_STATUS;
+							}};
+						setectExeJob.schedule();
+						oldSelection = (IStructuredSelection) newSelection;
+					}
+					
 				}
 			}
 		});
