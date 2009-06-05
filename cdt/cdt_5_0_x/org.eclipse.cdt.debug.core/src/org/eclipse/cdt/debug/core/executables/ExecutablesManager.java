@@ -261,6 +261,7 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 	 */
 	public void importExecutables(final String[] fileNames, IProgressMonitor monitor) {
 
+		boolean handled = false;
 		monitor.beginTask("Import Executables", executableImporters.size());
 		synchronized (executableImporters) {
 			Collections.sort(executableImporters, new Comparator<IExecutableImporter>() {
@@ -276,14 +277,15 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 				}});
 
 			for (IExecutableImporter importer : executableImporters) {
-				boolean handled = importer.importExecutables(fileNames, new SubProgressMonitor(monitor, 1));
+				handled = importer.importExecutables(fileNames, new SubProgressMonitor(monitor, 1));
 				if (handled || monitor.isCanceled()) {
 					break;
 				}
 			}
 		}
 		
-		scheduleRefresh();
+		if (handled)
+			scheduleRefresh();
 	}
 
 	/**
