@@ -415,21 +415,30 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 			if (event.getType() == IResourceChangeEvent.POST_BUILD) {
 				Object obj = event.getSource();
 				if (obj != null && obj instanceof IProject) {
-					if (executablesMap.containsKey(obj)) {
-						List<Executable> executables = executablesMap.remove(obj);
+					try {
+						// make sure there's at least one builder for the project.  this gets called even
+						// when there are no builder (e.g. the Executables project for imported executables).
+						IProject project = (IProject)obj;
+						if (project.getDescription().getBuildSpec().length > 0) {
+							if (executablesMap.containsKey(obj)) {
+								List<Executable> executables = executablesMap.remove(obj);
 
-						trace("Scheduling refresh because project " + ((IProject)obj).getName() + " built or cleaned");
-						
-						scheduleRefresh();
+								trace("Scheduling refresh because project " + ((IProject)obj).getName() + " built or cleaned");
+								
+								scheduleRefresh();
 
-						// notify the listeners that these executables have possibly changed
-						if (executables != null && executables.size() > 0) {
-							synchronized (changeListeners) {
-								for (IExecutablesChangeListener listener : changeListeners) {
-									listener.executablesChanged(executables);
+								// notify the listeners that these executables have possibly changed
+								if (executables != null && executables.size() > 0) {
+									synchronized (changeListeners) {
+										for (IExecutablesChangeListener listener : changeListeners) {
+											listener.executablesChanged(executables);
+										}
+									}
 								}
 							}
 						}
+					} catch (CoreException e) {
+						e.printStackTrace();
 					}
 				}
 				return;
