@@ -191,14 +191,29 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 
 	/**
 	 * Gets the list of executables in the workspace.
+	 * @param wait whether or not to wait if the list is being refreshed when this
+	 * method is called.  when true, this call will not return until the list is
+	 * complete.  when false, it will return with the last known list.  if calling
+	 * from any UI, you should not block the UI waiting for this to return, but rather
+	 * register as an {@link IExecutablesChangeListener} to get notifications when the
+	 * list changes.
 	 * @return the list of executables which may be empty
 	 */
-	public Collection<Executable> getExecutables() {
+	public Collection<Executable> getExecutables(boolean wait) {
 		
 		trace("getExecutables called at " + getStringFromTimestamp(System.currentTimeMillis()));
 
 		List<Executable> executables = new ArrayList<Executable>();
 
+		if (wait && refreshJob.getState() != Job.NONE) {
+			trace("waiting for refresh job to finish at " + getStringFromTimestamp(System.currentTimeMillis()));
+			try {
+				refreshJob.join();
+			} catch (InterruptedException e) {
+			}
+			trace("refresh job finished at " + getStringFromTimestamp(System.currentTimeMillis()));
+		}
+		
 		synchronized (executablesMap) {
 			for (List<Executable> exes : executablesMap.values()) {
 				for (Executable exe : exes) {
@@ -214,6 +229,15 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 		return executables;
 	}
 
+	/**
+	 * Gets the list of executables in the workspace.  Equivalent to {@link ExecutablesManager}{@link #getExecutables(false)}.
+	 * Just kept for older API compatibility.
+	 * @return the list of executables which may be empty
+	 */
+	public Collection<Executable> getExecutables() {
+		return getExecutables(false);
+	}
+	
 	/**
 	 * Gets the collection of executables for the given project
 	 * @param project the project
