@@ -12,9 +12,7 @@
 package org.eclipse.cdt.internal.core.model;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import org.eclipse.cdt.core.CCorePlugin;
 import org.eclipse.cdt.core.model.CModelException;
@@ -333,25 +331,20 @@ public class PathEntryUtil {
 	}
 
 	public static ICModelStatus validatePathEntry(ICProject cProject, IPathEntry[] entries) {
-		// TODO restore this!!! only for performance testing since this seems to be a major bottleneck!!		
-		if (false) { // remove
-			// Check duplication.
-			for (IPathEntry entry : entries) {
-				if (entry == null) {
-					continue;
+		// Check duplication.
+		Set<IPathEntry> entrySet = new HashSet<IPathEntry>(entries.length);
+		for (IPathEntry entry : entries) {
+			if (entry != null) {
+				if (entrySet.contains(entry)) {
+					StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
+					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
 				}
-				for (IPathEntry otherEntry : entries) {
-					if (otherEntry == null) {
-						continue;
-					}
-					if (entry != otherEntry && otherEntry.equals(entry)) {
-						StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
-						return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
-					}
+				else {
+					entrySet.add(entry);
 				}
 			}
-		} // remove
-
+		}
+		
 		// check duplication of sources
 		List<IPathEntry> dups = checkForDuplication(Arrays.asList(entries), IPathEntry.CDT_SOURCE);
 		if (dups.size() > 0) {

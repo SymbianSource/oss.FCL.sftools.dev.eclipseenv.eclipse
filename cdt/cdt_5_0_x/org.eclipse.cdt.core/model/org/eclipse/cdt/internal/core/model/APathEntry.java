@@ -12,8 +12,7 @@
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.model;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
@@ -77,6 +76,18 @@ public abstract class APathEntry extends PathEntry {
 			}
 		}
 		return this.fullCharExclusionPatterns;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = super.hashCode();
+		result = prime * result
+				+ ((basePath == null) ? 0 : basePath.hashCode());
+		result = prime * result + ((baseRef == null) ? 0 : baseRef.hashCode());
+		result = prime * result + Arrays.hashCode(exclusionPatterns);
+		result = prime * result + Arrays.hashCode(fullCharExclusionPatterns);
+		return result;
 	}
 
 	@Override
