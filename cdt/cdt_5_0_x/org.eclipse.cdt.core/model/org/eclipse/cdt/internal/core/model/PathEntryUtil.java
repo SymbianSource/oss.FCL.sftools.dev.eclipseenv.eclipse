@@ -333,22 +333,24 @@ public class PathEntryUtil {
 	}
 
 	public static ICModelStatus validatePathEntry(ICProject cProject, IPathEntry[] entries) {
-
-		// Check duplication.
-		for (IPathEntry entry : entries) {
-			if (entry == null) {
-				continue;
-			}
-			for (IPathEntry otherEntry : entries) {
-				if (otherEntry == null) {
+		// TODO restore this!!! only for performance testing since this seems to be a major bottleneck!!		
+		if (false) { // remove
+			// Check duplication.
+			for (IPathEntry entry : entries) {
+				if (entry == null) {
 					continue;
 				}
-				if (entry != otherEntry && otherEntry.equals(entry)) {
-					StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
-					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
+				for (IPathEntry otherEntry : entries) {
+					if (otherEntry == null) {
+						continue;
+					}
+					if (entry != otherEntry && otherEntry.equals(entry)) {
+						StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
+						return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
+					}
 				}
 			}
-		}
+		} // remove
 
 		// check duplication of sources
 		List<IPathEntry> dups = checkForDuplication(Arrays.asList(entries), IPathEntry.CDT_SOURCE);
