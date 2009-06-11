@@ -82,11 +82,9 @@ public abstract class APathEntry extends PathEntry {
 	public int hashCode() {
 		final int prime = 31;
 		int result = super.hashCode();
-		result = prime * result
-				+ ((basePath == null) ? 0 : basePath.hashCode());
+		result = prime * result + ((basePath == null) ? 0 : basePath.hashCode());
 		result = prime * result + ((baseRef == null) ? 0 : baseRef.hashCode());
 		result = prime * result + Arrays.hashCode(exclusionPatterns);
-		result = prime * result + Arrays.hashCode(fullCharExclusionPatterns);
 		return result;
 	}
 

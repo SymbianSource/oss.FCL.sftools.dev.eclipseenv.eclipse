@@ -145,10 +145,6 @@ public class LibraryEntry extends APathEntry implements ILibraryEntry {
 						.hashCode());
 		result = prime
 				* result
-				+ ((sourceAttachmentPrefixMapping == null) ? 0
-						: sourceAttachmentPrefixMapping.hashCode());
-		result = prime
-				* result
 				+ ((sourceAttachmentRootPath == null) ? 0
 						: sourceAttachmentRootPath.hashCode());
 		return result;

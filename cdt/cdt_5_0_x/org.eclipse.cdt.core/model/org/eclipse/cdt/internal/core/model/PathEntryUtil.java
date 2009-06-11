@@ -12,6 +12,7 @@
 package org.eclipse.cdt.internal.core.model;
 
 import java.io.File;
+import java.text.MessageFormat;
 import java.util.*;
 
 import org.eclipse.cdt.core.CCorePlugin;
@@ -336,8 +337,10 @@ public class PathEntryUtil {
 		for (IPathEntry entry : entries) {
 			if (entry != null) {
 				if (entrySet.contains(entry)) {
-					StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
-					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
+					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, 
+							MessageFormat.format("{0}{1}", //$NON-NLS-1$
+									CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry"), //$NON-NLS-1$
+									entry.getPath().toString()));
 				}
 				else {
 					entrySet.add(entry);
