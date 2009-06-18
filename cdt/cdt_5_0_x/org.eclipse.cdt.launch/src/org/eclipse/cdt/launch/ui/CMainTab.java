@@ -57,9 +57,12 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.ElementListSelectionDialog;
+import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.dialogs.TwoPaneElementSelector;
 
 /**
@@ -83,6 +86,12 @@ public class CMainTab extends CLaunchConfigurationTab {
 	protected Label fProgLabel;
 	protected Text fProgText;
 	protected Button fSearchButton;
+
+	// Build option UI widgets
+	protected Button fDisableBuildButton;
+	protected Button fEnableBuildButton;
+	protected Button fWorkspaceSettingsButton;
+	protected Link fWorkpsaceSettingsLink;
 
 	private final boolean fWantsTerminalOption;
 	protected Button fTerminalButton;
@@ -126,6 +135,7 @@ public class CMainTab extends CLaunchConfigurationTab {
 		createVerticalSpacer(comp, 1);
 		createProjectGroup(comp, 1);
 		createExeFileGroup(comp, 1);
+		createBuildOptionGroup(comp, 1);
 		createVerticalSpacer(comp, 1);
 		if (wantsTerminalOption() /* && ProcessFactory.supportesTerminal() */) {
 			createTerminalOption(comp, 1);
@@ -212,6 +222,66 @@ public class CMainTab extends CLaunchConfigurationTab {
 		});
 	}
 
+	protected void createBuildOptionGroup(final Composite parent, int colSpan) {
+		Group buildGroup = new Group(parent, SWT.NONE);
+		GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
+		gridData.horizontalSpan = colSpan;
+		GridLayout gridLayout = new GridLayout();
+		gridLayout.numColumns = 2;
+		gridLayout.marginHeight = 5;
+		gridLayout.marginWidth = 5;
+		gridLayout.makeColumnsEqualWidth= true;
+		buildGroup.setLayoutData(gridData);
+		buildGroup.setLayout(gridLayout);
+		buildGroup.setText("Build (if required) before launching"); //$NON-NLS-1$
+
+		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
+		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
+		fDisableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Disable_build_button_tooltip")); //$NON-NLS-1$
+		fDisableBuildButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+		
+		new Label(buildGroup, SWT.NONE);
+
+		fEnableBuildButton = new Button(buildGroup, SWT.RADIO);
+		fEnableBuildButton.setText(LaunchMessages.getString("CMainTab.Enable_build_button_label")); //$NON-NLS-1$
+		fEnableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Enable_build_button_tooltip")); //$NON-NLS-1$
+		fEnableBuildButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+		
+		new Label(buildGroup, SWT.NONE);
+		
+		fWorkspaceSettingsButton = new Button(buildGroup, SWT.RADIO);
+		fWorkspaceSettingsButton.setText(LaunchMessages.getString("CMainTab.Workspace_settings_button_label")); //$NON-NLS-1$
+		fWorkspaceSettingsButton.setToolTipText(LaunchMessages.getString("CMainTab.Workspace_settings_button_tooltip")); //$NON-NLS-1$
+		fWorkspaceSettingsButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+
+		fWorkpsaceSettingsLink = new Link(buildGroup, SWT.NONE); //$NON-NLS-1$
+		fWorkpsaceSettingsLink.setText(LaunchMessages.getString("CMainTab.Workspace_settings_link_label")); //$NON-NLS-1$
+		fWorkpsaceSettingsLink.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				PreferencesUtil.createPreferenceDialogOn(
+						parent.getShell(), 
+						LaunchMessages.getString("CMainTab.Workspace_settings_page_id"), //$NON-NLS-1$
+						null, 
+						null).open();
+			}
+		});
+	}
+
 	protected boolean wantsTerminalOption() {
 		return fWantsTerminalOption;
 	}
@@ -246,6 +316,7 @@ public class CMainTab extends CLaunchConfigurationTab {
 		filterPlatform = getPlatform(config);
 		updateProjectFromConfig(config);
 		updateProgramFromConfig(config);
+		updateBuildOptionFromConfig(config);
 		updateTerminalFromConfig(config);
 	}
 
@@ -272,13 +343,28 @@ public class CMainTab extends CLaunchConfigurationTab {
 	}
 
 	protected void updateProgramFromConfig(ILaunchConfiguration config) {
-		String programName = EMPTY_STRING;
-		try {
-			programName = config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, EMPTY_STRING);
-		} catch (CoreException ce) {
-			LaunchUIPlugin.log(ce);
+		if (fProgText != null) {
+			String programName = EMPTY_STRING;
+			try {
+				programName = config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, EMPTY_STRING);
+			} catch (CoreException ce) {
+				LaunchUIPlugin.log(ce);
+			}
+			fProgText.setText(programName);
 		}
-		fProgText.setText(programName);
+	}
+
+	protected void updateBuildOptionFromConfig(ILaunchConfiguration config) {
+		int buildBeforeLaunchValue = ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_USE_WORKSPACE_SETTING;
+		try {
+			buildBeforeLaunchValue = config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_BUILD_BEFORE_LAUNCH, buildBeforeLaunchValue);
+		} catch (CoreException e) {
+			LaunchUIPlugin.log(e);
+		}
+
+		fDisableBuildButton.setSelection(buildBeforeLaunchValue == ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_DISABLED);
+		fEnableBuildButton.setSelection(buildBeforeLaunchValue == ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_ENABLED);
+		fWorkspaceSettingsButton.setSelection(buildBeforeLaunchValue == ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_USE_WORKSPACE_SETTING);
 	}
 
 	/*
@@ -303,10 +389,24 @@ public class CMainTab extends CLaunchConfigurationTab {
 				}
 			} catch (CoreException e) { e.printStackTrace(); }
 		}
+		
 		config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROJECT_NAME, fProjText.getText());
-		config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, fProgText.getText());
+		
+		if (fProgText != null) {
+			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, fProgText.getText());
+		}
 		if (fTerminalButton != null) {
 			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_USE_TERMINAL, fTerminalButton.getSelection());
+		}
+
+		if (fDisableBuildButton != null) {
+			int buildBeforeLaunchValue = ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_USE_WORKSPACE_SETTING;
+			if (fDisableBuildButton.getSelection()) {
+				buildBeforeLaunchValue = ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_DISABLED;
+			} else if (fEnableBuildButton.getSelection()) {
+				buildBeforeLaunchValue = ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_ENABLED;
+			}
+			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_BUILD_BEFORE_LAUNCH, buildBeforeLaunchValue);
 		}
 	}
 
