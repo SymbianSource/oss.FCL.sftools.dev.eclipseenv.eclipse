@@ -12,6 +12,7 @@
 package org.eclipse.cdt.internal.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -390,7 +391,6 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 			
 		List<ICElement> list= new ArrayList<ICElement>();
 		ICElement[] children = cproject.getChildren();
-
 		for (int i= 0; i < children.length; i++) {
 			ICElement child = children[i];
 			if (child instanceof ISourceRoot && child.getResource().getType() == IResource.PROJECT) {
@@ -519,7 +519,11 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 
 	protected Object[] getCResources(ICContainer container) throws CModelException {
 		Object[] objects = null;
-		Object[] children = container.getChildren();
+		ICElement[] children = container.getChildren();
+		List<ICElement> missingElements = Collections.emptyList();
+		if (!CCorePlugin.showSourceRootsAtTopOfProject()) {
+			missingElements = getMissingElements(container, children);
+		}
 		try {
 			objects = container.getNonCResources();
 			if (objects.length > 0) {
@@ -530,7 +534,38 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 		if (objects == null || objects.length == 0) {
 			return children;
 		}
-		return concatenate(children, objects);
+		Object[] result = concatenate(children, objects);
+		return concatenate(result, missingElements.toArray());
+	}
+
+	private List<ICElement> getMissingElements(ICContainer container, ICElement[] elements) {
+		// nested source roots may be filtered out below the project root, 
+		// we need to find them to add them back in
+		List<ICElement> missingElements = new ArrayList<ICElement>();
+		try {
+			List<IResource> missingContainers = new ArrayList<IResource>();
+			IResource[] allChildren = ((IContainer) container.getResource()).members();
+			for (IResource child : allChildren) {
+				if (!(child instanceof IContainer))
+					continue;
+				boolean found = false;
+				for (ICElement element : elements) {
+					if (element.getResource().equals(child)) {
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+					missingContainers.add(child);
+			}
+			for (IResource resource : missingContainers) {
+				ICElement element = container.getCProject().findElement(resource.getFullPath());
+				if (element != null)
+					missingElements.add(element);
+			}
+		} catch (CoreException e1) {
+		}
+		return missingElements;
 	}
 
 	protected Object[] getResources(IProject project) {
