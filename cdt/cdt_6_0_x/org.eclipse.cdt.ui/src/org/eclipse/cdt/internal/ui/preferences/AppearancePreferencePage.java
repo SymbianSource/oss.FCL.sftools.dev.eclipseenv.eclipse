@@ -12,6 +12,7 @@
 package org.eclipse.cdt.internal.ui.preferences;
 
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Preferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
@@ -27,7 +28,10 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.PlatformUI;
 import org.osgi.service.prefs.BackingStoreException;
+import org.eclipse.ui.navigator.CommonNavigator;
 
+import org.eclipse.cdt.core.CCorePlugin;
+import org.eclipse.cdt.core.CCorePreferenceConstants;
 import org.eclipse.cdt.ui.CUIPlugin;
 import org.eclipse.cdt.ui.PreferenceConstants;
 
@@ -46,6 +50,7 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 	private SelectionButtonDialogField fOutlineGroupNamespaces;
 	private SelectionButtonDialogField fCViewGroupIncludes;
 	private SelectionButtonDialogField fCViewSeparateHeaderAndSource;
+	private SelectionButtonDialogField fShowSourceRootsAtTopOfProject;
 	private SelectionButtonDialogField fOutlineGroupMembers;
 	
 	public AppearancePreferencePage() {
@@ -81,6 +86,12 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		fCViewSeparateHeaderAndSource= new SelectionButtonDialogField(SWT.CHECK);
 		fCViewSeparateHeaderAndSource.setDialogFieldListener(listener);
 		fCViewSeparateHeaderAndSource.setLabelText(PreferencesMessages.AppearancePreferencePage_cviewSeparateHeaderAndSource_label); 
+	
+		fShowSourceRootsAtTopOfProject= new SelectionButtonDialogField(SWT.CHECK);
+		fShowSourceRootsAtTopOfProject.setDialogFieldListener(listener);
+		fShowSourceRootsAtTopOfProject.setLabelText(PreferencesMessages.AppearancePreferencePage_showSourceRootsAtTopOfProject_label); 
+		
+	
 	}
 
 	private void initFields() {
@@ -90,6 +101,8 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		fCViewSeparateHeaderAndSource.setSelection(prefs.getBoolean(PreferenceConstants.CVIEW_SEPARATE_HEADER_AND_SOURCE));
 		fOutlineGroupIncludes.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_INCLUDES));
 		fOutlineGroupNamespaces.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_NAMESPACES));
+		boolean showSourceRootsAtTopOfProject = CCorePlugin.showSourceRootsAtTopOfProject();
+		fShowSourceRootsAtTopOfProject.setSelection(showSourceRootsAtTopOfProject);
 		fOutlineGroupMembers.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_MEMBERS));
 	}
 	
@@ -126,13 +139,16 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		new Separator().doFillIntoGrid(result, nColumns);
 		
 		fCViewSeparateHeaderAndSource.doFillIntoGrid(result, nColumns);
-		
 		String noteTitle= PreferencesMessages.AppearancePreferencePage_note;
 		String noteMessage= PreferencesMessages.AppearancePreferencePage_preferenceOnlyForNewViews; 
 		Composite noteControl= createNoteComposite(JFaceResources.getDialogFont(), result, noteTitle, noteMessage);
 		GridData gd= new GridData(GridData.HORIZONTAL_ALIGN_FILL);
 		gd.horizontalSpan= 2;
 		noteControl.setLayoutData(gd);
+		
+		
+		new Separator().doFillIntoGrid(result, nColumns);
+		fShowSourceRootsAtTopOfProject.doFillIntoGrid(result, nColumns);
 		
 		initFields();
 		
@@ -171,6 +187,8 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		prefs.setValue(PreferenceConstants.OUTLINE_GROUP_INCLUDES, fOutlineGroupIncludes.isSelected());
 		prefs.setValue(PreferenceConstants.OUTLINE_GROUP_NAMESPACES, fOutlineGroupNamespaces.isSelected());
 		prefs.setValue(PreferenceConstants.OUTLINE_GROUP_MEMBERS, fOutlineGroupMembers.isSelected());
+		CCorePlugin.getDefault().getPluginPreferences().setValue(CCorePreferenceConstants.SHOW_SOURCE_ROOTS_AT_TOP_LEVEL_OF_PROJECT, fShowSourceRootsAtTopOfProject.isSelected());
+		CCorePlugin.getDefault().savePluginPreferences();
 		try {
 			new InstanceScope().getNode(CUIPlugin.PLUGIN_ID).flush();
 		} catch (BackingStoreException exc) {
@@ -185,6 +203,8 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 	@Override
 	protected void performDefaults() {
 		IPreferenceStore prefs= getPreferenceStore();
+		Preferences corePrefs = CCorePlugin.getDefault().getPluginPreferences();
+		fShowSourceRootsAtTopOfProject.setSelection(corePrefs.getDefaultBoolean(CCorePreferenceConstants.SHOW_SOURCE_ROOTS_AT_TOP_LEVEL_OF_PROJECT));
 		fShowTUChildren.setSelection(prefs.getDefaultBoolean(PreferenceConstants.PREF_SHOW_CU_CHILDREN));
 		fCViewGroupIncludes.setSelection(prefs.getDefaultBoolean(PreferenceConstants.CVIEW_GROUP_INCLUDES));
 		fCViewSeparateHeaderAndSource.setSelection(prefs.getDefaultBoolean(PreferenceConstants.CVIEW_SEPARATE_HEADER_AND_SOURCE));

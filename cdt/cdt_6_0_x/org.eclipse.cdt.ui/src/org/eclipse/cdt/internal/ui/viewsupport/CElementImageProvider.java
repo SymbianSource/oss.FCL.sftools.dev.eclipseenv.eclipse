@@ -14,8 +14,12 @@
 package org.eclipse.cdt.internal.ui.viewsupport;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
@@ -23,6 +27,7 @@ import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.model.IWorkbenchAdapter;
 
+import org.eclipse.cdt.core.CCorePlugin;
 import org.eclipse.cdt.core.model.CModelException;
 import org.eclipse.cdt.core.model.CoreModel;
 import org.eclipse.cdt.core.model.IArchiveContainer;
@@ -45,6 +50,9 @@ import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.cdt.core.parser.ast.ASTAccessVisibility;
 import org.eclipse.cdt.ui.CElementImageDescriptor;
 import org.eclipse.cdt.ui.CUIPlugin;
+
+import org.eclipse.cdt.internal.core.model.CModel;
+import org.eclipse.cdt.internal.core.model.CModelManager;
 
 import org.eclipse.cdt.internal.ui.CPluginImages;
 
@@ -138,6 +146,9 @@ public class CElementImageProvider {
 				Point size= useSmallSize(flags) ? SMALL_SIZE : BIG_SIZE;
 				descriptor = new CElementImageDescriptor(descriptor, 0, size);
 			}
+		} else if (!CCorePlugin.showSourceRootsAtTopOfProject() &&
+				element instanceof IFolder && isParentOfSourceRoot(element)) {
+			descriptor = CPluginImages.DESC_OBJS_SOURCE2_ROOT;
 		}
 		if (descriptor == null && element instanceof IAdaptable) {
 			descriptor= getWorkbenchImageDescriptor((IAdaptable) element, flags);
@@ -146,6 +157,24 @@ public class CElementImageProvider {
 			return CUIPlugin.getImageDescriptorRegistry().get(descriptor);
 		}
 		return null;
+	}
+
+	private boolean isParentOfSourceRoot(Object element) {
+		IFolder folder = (IFolder)element;
+		ICProject cproject = CModelManager.getDefault().getCModel().findCProject(folder.getProject());
+		if (cproject != null) {
+			try {
+				IPath folderPath = folder.getFullPath();
+				for (ICElement sourceRoot : cproject.getSourceRoots()) {
+					if (folderPath.isPrefixOf(sourceRoot.getPath())) {
+						return true;
+					}
+				}
+			} catch (CModelException e) {
+			}
+		}
+		
+		return false;
 	}
 
 	public static ImageDescriptor getImageDescriptor(int type) {
