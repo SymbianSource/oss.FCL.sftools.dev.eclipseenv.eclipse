@@ -10,9 +10,9 @@
  *******************************************************************************/
 package org.eclipse.cdt.debug.internal.ui.views.executables;
 
+import java.util.List;
 import org.eclipse.cdt.debug.core.executables.Executable;
 import org.eclipse.cdt.debug.core.executables.ExecutablesManager;
-import org.eclipse.cdt.debug.core.executables.IExecutablesChangeEvent;
 import org.eclipse.cdt.debug.core.executables.IExecutablesChangeListener;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -166,38 +166,49 @@ public class ExecutablesViewer extends BaseViewer implements IExecutablesChangeL
 		return new ExecutablesViewerComparator(sortType, column_sort_order[sortType]);
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see org.eclipse.cdt.debug.core.executables.IExecutablesChangeListener#executablesChanged(org.eclipse.cdt.debug.core.executables.IExecutablesChangeEvent)
-	 */
-	public void executablesChanged(IExecutablesChangeEvent event) {
-		// Executables have changed so refresh the view.
-		final ExecutablesViewer viewer = this;
-		UIJob refreshJob = new UIJob(Messages.ExecutablesViewer_RefreshExecutablesView) {
+	public void executablesChanged(final List<Executable> executables) {
+			// some executables have been updated.  if one of them is currently
+			// selected, we need to update the source file list
+			UIJob refreshJob = new UIJob(Messages.ExecutablesViewer_RefreshExecutablesView) {
+	
+				@Override
+				public IStatus runInUIThread(IProgressMonitor monitor) {
+					// if the user has selected an executable, they expect its
+					// list of source files to be refreshed automatically
+					if (getSelection() != null &&
+						getSelection() instanceof IStructuredSelection) {
+						IStructuredSelection selection = (IStructuredSelection)getSelection();
+						
+						Object firstElement = selection.getFirstElement();
+						if (firstElement instanceof Executable) {
+							Executable executable = (Executable) firstElement;
+							if (executables.contains(executable)) {
+								executable.setRefreshSourceFiles(true);
+								setSelection(selection);
+							}
+						}
+					}
+					return Status.OK_STATUS;
+				}
+			};
+			refreshJob.schedule();
+		}
+	
+	public void executablesListChanged() {
+		// Executables list has changed so refresh the view.
+		UIJob refreshJob = new UIJob(
+				Messages.ExecutablesViewer_RefreshExecutablesView) {
 
 			@Override
 			public IStatus runInUIThread(IProgressMonitor monitor) {
-				// if the user has selected an executable, they expect its
-				// list of source files to be refreshed automatically
-				if (viewer.getSelection() != null &&
-					viewer.getSelection() instanceof IStructuredSelection) {
-					IStructuredSelection selection = (IStructuredSelection) viewer.getSelection();
-					
-					Object firstElement = selection.getFirstElement();
-					if (firstElement instanceof Executable) {
-						Executable executable = (Executable)firstElement;
-						executable.setRefreshSourceFiles(true);
-						viewer.setSelection(selection);
-					}
-				}
-				viewer.refresh(null);
-				viewer.packColumns();
+				refresh(null);
+				packColumns();
 				return Status.OK_STATUS;
 			}
 		};
 		refreshJob.schedule();
 	}
+
 
 	@Override
 	protected String getColumnOrderKey() {
