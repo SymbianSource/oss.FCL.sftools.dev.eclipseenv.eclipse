@@ -11,6 +11,7 @@
 package org.eclipse.core.internal.refresh;
 
 import java.util.*;
+
 import org.eclipse.core.internal.localstore.PrefixPool;
 import org.eclipse.core.internal.utils.Messages;
 import org.eclipse.core.internal.utils.Policy;
@@ -27,6 +28,13 @@ import org.eclipse.osgi.util.NLS;
  */
 public class RefreshJob extends WorkspaceJob {
 	private static final long UPDATE_DELAY = 200;
+	
+	/**
+	 * Flag indicating refreshing in progress if > 0
+	 */
+	private static int refreshingLevel = 0;
+	
+	
 	/**
 	 * List of refresh requests. Requests are processed in order from
 	 * the end of the list. Requests can be added to either the beginning
@@ -151,6 +159,13 @@ public class RefreshJob extends WorkspaceJob {
 		MultiStatus errors = new MultiStatus(ResourcesPlugin.PI_RESOURCES, 1, msg, null);
 		long longestRefresh = 0;
 		try {
+			refreshingLevel++;
+			ResourcesPlugin.writeRefreshLog(RefreshManager.DEBUG_PREFIX + " refreshing started..."); //$NON-NLS-1$
+			for (Iterator iterator = fRequests.iterator(); iterator.hasNext();) {
+				IResource resource = (IResource) iterator.next();
+				ResourcesPlugin.writeRefreshLog(RefreshManager.DEBUG_PREFIX + " requested resource to refresh: " + resource.getFullPath()); //$NON-NLS-1$
+			}
+			
 			if (RefreshManager.DEBUG)
 				Policy.debug(RefreshManager.DEBUG_PREFIX + " starting refresh job"); //$NON-NLS-1$
 			int refreshCount = 0;
@@ -193,6 +208,9 @@ public class RefreshJob extends WorkspaceJob {
 			monitor.done();
 			if (RefreshManager.DEBUG)
 				System.out.println(RefreshManager.DEBUG_PREFIX + " finished refresh job in: " + (System.currentTimeMillis() - start) + "ms"); //$NON-NLS-1$ //$NON-NLS-2$
+			
+			ResourcesPlugin.writeRefreshLog(RefreshManager.DEBUG_PREFIX + " finished refresh job in: " + (System.currentTimeMillis() - start) + "ms"); //$NON-NLS-1$ //$NON-NLS-2$
+			refreshingLevel--;
 		}
 		if (!errors.isOK())
 			return errors;
@@ -221,5 +239,9 @@ public class RefreshJob extends WorkspaceJob {
 		if (RefreshManager.DEBUG)
 			System.out.println(RefreshManager.DEBUG_PREFIX + " disabling auto-refresh"); //$NON-NLS-1$
 		cancel();
+	}
+	
+	public static boolean isRefreshing() {
+		return refreshingLevel > 0;
 	}
 }
