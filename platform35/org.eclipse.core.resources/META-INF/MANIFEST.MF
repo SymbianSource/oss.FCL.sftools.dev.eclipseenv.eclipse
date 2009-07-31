@@ -10,7 +10,7 @@ Require-Bundle: org.eclipse.ant.core;bundle-version="[3.1.0,4.0.0)";re
  solution:=optional,org.eclipse.core.expressions;bundle-version="[3.2.
  0,4.0.0)",org.eclipse.core.filesystem;bundle-version="[1.1.0,2.0.0)",
  org.eclipse.core.runtime;bundle-version="[3.2.0,4.0.0)"
-Bundle-Version: 3.5.0.v20090512
+Bundle-Version: 3.5.10.qualifier
 Export-Package: org.eclipse.core.internal.dtree;x-internal:=true,org.e
  clipse.core.internal.events;x-internal:=true,org.eclipse.core.interna
  l.localstore;x-internal:=true,org.eclipse.core.internal.properties;x-
