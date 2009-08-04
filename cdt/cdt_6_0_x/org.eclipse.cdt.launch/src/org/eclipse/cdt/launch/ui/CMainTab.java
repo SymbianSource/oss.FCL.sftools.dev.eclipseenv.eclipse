@@ -172,6 +172,7 @@ public class CMainTab extends CLaunchConfigurationTab {
 		createVerticalSpacer(comp, 1);
 		createProjectGroup(comp, 1);
 		createBuildConfigCombo(comp, 1);
+		createBuildOptionGroup(comp, 1);
 		createExeFileGroup(comp, 1);
 		createVerticalSpacer(comp, 1);
 		if (fSpecifyCoreFile) {
