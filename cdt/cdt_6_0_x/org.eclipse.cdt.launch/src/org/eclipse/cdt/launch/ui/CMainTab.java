@@ -493,13 +493,16 @@ public class CMainTab extends CLaunchConfigurationTab {
 	}
 
 	protected void updateProgramFromConfig(ILaunchConfiguration config) {
-		String programName = EMPTY_STRING;
-		try {
-			programName = config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, EMPTY_STRING);
-		} catch (CoreException ce) {
-			LaunchUIPlugin.log(ce);
+		if (fProgText != null)
+		{
+			String programName = EMPTY_STRING;
+			try {
+				programName = config.getAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, EMPTY_STRING);
+			} catch (CoreException ce) {
+				LaunchUIPlugin.log(ce);
+			}
+			fProgText.setText(programName);
 		}
-		fProgText.setText(programName);
 	}
 
 	/** @since 6.0 */
@@ -546,8 +549,12 @@ public class CMainTab extends CLaunchConfigurationTab {
 			config.setMappedResources(null);
 		}
 		config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROJECT_NAME, fProjText.getText());
-		config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROJECT_BUILD_CONFIG_ID, (String)fBuildConfigCombo.getData(Integer.toString(fBuildConfigCombo.getSelectionIndex())));
-		config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, fProgText.getText());
+		if (fBuildConfigCombo != null) {
+			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROJECT_BUILD_CONFIG_ID, (String)fBuildConfigCombo.getData(Integer.toString(fBuildConfigCombo.getSelectionIndex())));
+		}
+		if (fProgText != null) {
+			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_PROGRAM_NAME, fProgText.getText());
+		}
 		if (fCoreText != null) {
 			config.setAttribute(ICDTLaunchConfigurationConstants.ATTR_COREFILE_PATH, fCoreText.getText());
 		}
