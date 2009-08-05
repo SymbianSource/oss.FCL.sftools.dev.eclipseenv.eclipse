@@ -603,7 +603,11 @@ public class CVisitor extends ASTQueries {
 		
 		IType type = fieldOwner.getExpressionType();
 	    while (type != null && type instanceof ITypeContainer) {
-    		type = ((ITypeContainer)type).getType();
+    		try {
+                type = ((ITypeContainer)type).getType();
+            } catch (DOMException e) {
+                return e.getProblem();
+            }
 	    }
 		
 		if (type != null && type instanceof ICompositeType) {
@@ -922,10 +926,14 @@ public class CVisitor extends ASTQueries {
                         }
 					} else if (struct instanceof ITypeContainer) {
 						IType type;
-                        type = ((ITypeContainer)struct).getType();
-						while (type instanceof ITypeContainer && !(type instanceof CStructure)) {
-							type = ((ITypeContainer)type).getType();
-						}
+                        try {
+                            type = ((ITypeContainer)struct).getType();
+                            while (type instanceof ITypeContainer && !(type instanceof CStructure)) {
+    							type = ((ITypeContainer)type).getType();
+    						}
+                        } catch (DOMException e) {
+                            return e.getProblem();
+                        }
                         
 						
 						if (type instanceof CStructure)
@@ -1277,25 +1285,29 @@ public class CVisitor extends ASTQueries {
         	IType paramType = type;
         	// Remove typedefs ready for subsequent processing.
         	while (paramType instanceof ITypedef) {
-        		paramType = ((ITypedef)paramType).getType();
+        		try {
+					paramType = ((ITypedef)paramType).getType();
+				} catch (DOMException e) {
+					paramType= null;
+				}
         	}
         	        	
             //C99: 6.7.5.3-7 a declaration of a parameter as "array of type" shall be adjusted to "qualified pointer to type", where the
     		//type qualifiers (if any) are those specified within the[and] of the array type derivation
             if (paramType instanceof IArrayType) { // the index does not yet return ICArrayTypes
 	            IArrayType at = (IArrayType) paramType;
-				int q= 0;
-				if (at instanceof ICArrayType) {
-					ICArrayType cat= (ICArrayType) at;
-					try {
+				try {
+					int q= 0;
+					if (at instanceof ICArrayType) {
+						ICArrayType cat= (ICArrayType) at;
 						if (cat.isConst()) q |= CPointerType.IS_CONST;
 						if (cat.isVolatile()) q |= CPointerType.IS_VOLATILE;
 						if (cat.isRestrict()) q |= CPointerType.IS_RESTRICT;
-					} catch (DOMException e) {
-						// ignore the qualifiers
 					}
+					type = new CPointerType(at.getType(), q);
+				} catch (DOMException e) {
+					// ignore the qualifiers
 				}
-				type = new CPointerType(at.getType(), q);
 	        } else if (paramType instanceof IFunctionType) {
 	            //-8 A declaration of a parameter as "function returning type" shall be adjusted to "pointer to function returning type"
 	            type = new CPointerType(paramType, 0);

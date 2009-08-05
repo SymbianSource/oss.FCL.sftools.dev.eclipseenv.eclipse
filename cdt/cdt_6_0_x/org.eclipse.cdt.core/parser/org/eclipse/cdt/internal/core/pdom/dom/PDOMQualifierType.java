@@ -14,10 +14,12 @@ package org.eclipse.cdt.internal.core.pdom.dom;
 
 import org.eclipse.cdt.core.CCorePlugin;
 import org.eclipse.cdt.core.dom.ast.ASTTypeUtil;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IQualifierType;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
 import org.eclipse.cdt.core.dom.ast.c.ICQualifierType;
+import org.eclipse.cdt.internal.core.Util;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 import org.eclipse.cdt.internal.core.index.IIndexBindingConstants;
 import org.eclipse.cdt.internal.core.index.IIndexType;
@@ -54,21 +56,26 @@ public class PDOMQualifierType extends PDOMNode implements IQualifierType, ICQua
 		
 		Database db = getDB();
 		
-		if (type != null) {
-			IType targetType = type.getType();
-			PDOMNode targetTypeNode = getLinkage().addType(this, targetType);
-			if (targetTypeNode != null) {
-				db.putRecPtr(record + TYPE, targetTypeNode.getRecord());
-			}
-			// flags
-			byte flags = 0;
-			if (type.isConst())
-				flags |= CONST;
-			if (type.isVolatile())
-				flags |= VOLATILE;
-			if (type instanceof ICQualifierType && ((ICQualifierType)type).isRestrict())
-				flags |= RESTRICT;
-			db.putByte(record + FLAGS, flags);
+		// type
+		try {
+			if (type != null) {
+				IType targetType = type.getType();
+				PDOMNode targetTypeNode = getLinkage().addType(this, targetType);
+				if (targetTypeNode != null) {
+					db.putRecPtr(record + TYPE, targetTypeNode.getRecord());
+				}
+				// flags
+				byte flags = 0;
+				if (type.isConst())
+					flags |= CONST;
+				if (type.isVolatile())
+					flags |= VOLATILE;
+				if (type instanceof ICQualifierType && ((ICQualifierType)type).isRestrict())
+					flags |= RESTRICT;
+				db.putByte(record + FLAGS, flags);
+			}			
+		} catch (DOMException e) {
+			throw new CoreException(Util.createStatus(e));
 		}
 	}
 
@@ -140,12 +147,15 @@ public class PDOMQualifierType extends PDOMNode implements IQualifierType, ICQua
 	        return false;
 	    
 	    IQualifierType pt = (IQualifierType) type;
-	    boolean flagsMatch= isConst() == pt.isConst() && isVolatile() == pt.isVolatile();
-		if (flagsMatch && type instanceof ICQualifierType)
-			flagsMatch &= isRestrict() == ((ICQualifierType) type).isRestrict();
-		if (flagsMatch) {
-			IType myType= getType();
-		    return myType != null && myType.isSameType(pt.getType());
+	    try {
+	    	boolean flagsMatch= isConst() == pt.isConst() && isVolatile() == pt.isVolatile();
+	    	if (flagsMatch && type instanceof ICQualifierType)
+	    		flagsMatch &= isRestrict() == ((ICQualifierType) type).isRestrict();
+			if (flagsMatch) {
+				IType myType= getType();
+			    return myType != null && myType.isSameType(pt.getType());
+			}
+		} catch (DOMException e) {
 		}
 	    return false;
 	}

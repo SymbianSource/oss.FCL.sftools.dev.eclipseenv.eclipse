@@ -669,28 +669,28 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		parse(getAboveComment(), ParserLanguage.CPP, false, 0);
 	}
 
-	//	class X; // X is an incomplete type
-	//	extern X* xp; // xp is a pointer to an incomplete type
-	//	extern int arr[]; // the type of arr is incomplete
-	//	typedef int UNKA[]; // UNKA is an incomplete type
-	//	UNKA* arrp; // arrp is a pointer to an incomplete type
-	//	UNKA** arrpp;
-	//	void foo() {
-	//		xp++; //ill-formed: X is incomplete
-	//		arrp++; //ill-formed: incomplete type
-	//		arrpp++; //OK: sizeof UNKA* is known
-	//	}
-	//	struct X {
-	//		int i; 
-	//	}; // now X is a complete type
-	//	int arr[10]; // now the type of arr is complete
-	//	X x;
-	//	void bar() {
-	//		xp = &x; // OK; type is ''pointer to X''
-	//		arrp = &arr; // ill-formed: different types
-	//		xp++; //OK: X is complete
-	//		arrp++; //ill-formed: UNKA can't be completed
-	//	}
+	// class X; // X is an incomplete type
+	// extern X* xp; // xp is a pointer to an incomplete type
+	// extern int arr[]; // the type of arr is incomplete
+	// typedef int UNKA[]; // UNKA is an incomplete type
+	// UNKA* arrp; // arrp is a pointer to an incomplete type
+	// UNKA** arrpp;
+	// void foo()
+	// {
+	// xp++; //illformed: X is incomplete
+	// arrp++; //illformed: incomplete type
+	// arrpp++; //OK: sizeof UNKA* is known
+	// }
+	// struct X { int i; }; // now X is a complete type
+	// int arr[10]; // now the type of arr is complete
+	// X x;
+	// void bar()
+	// {
+	// xp = &x; // OK; type is ''pointer to X''
+	// arrp = &arr; // illformed: different types
+	// xp++; //OK: X is complete
+	// arrp++; //illformed: UNKA can't be completed
+	// }
 	public void test3_9s7() throws Exception {
 		parse(getAboveComment(), ParserLanguage.CPP, true, 0);
 	}
@@ -797,7 +797,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		assertNull(newExpr.getNewPlacement());
 		assertNull(newExpr.getNewInitializer());
 		IASTTypeId typeid= newExpr.getTypeId();
-		isTypeEqual(CPPVisitor.createType(typeid), "int (* [10])()");
+		isTypeEqual(CPPVisitor.createType(typeid), "int () * []");
 	}
 
 	// typedef int T;
@@ -835,7 +835,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		newExpr= (ICPPASTNewExpression) expr;
 		assertNull(newExpr.getNewPlacement());
 		assertNull(newExpr.getNewInitializer());
-		isTypeEqual(CPPVisitor.createType(newExpr.getTypeId()), "int [5]");
+		isTypeEqual(CPPVisitor.createType(newExpr.getTypeId()), "int []");
 
 		// new (2,f) T[5];
 		expr= getExpressionOfStatement(fdef, 3);
@@ -843,7 +843,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		newExpr= (ICPPASTNewExpression) expr;
 		assertInstance(newExpr.getNewPlacement(), IASTExpressionList.class);
 		assertNull(newExpr.getNewInitializer());
-		isTypeEqual(CPPVisitor.createType(newExpr.getTypeId()), "int [5]");
+		isTypeEqual(CPPVisitor.createType(newExpr.getTypeId()), "int []");
 	}
 
 	// int n=2;
@@ -1858,7 +1858,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		
 		BindingAssertionHelper ba= new BindingAssertionHelper(code, true);
 		IFunction f= ba.assertNonProblem("f", 1, IFunction.class);
-		isTypeEqual(f.getType(), "void (int (*)(C))");
+		isTypeEqual(f.getType(), "void (int (C) *)");
 	}
 
 	// class C { };
@@ -1869,7 +1869,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		parse(code, ParserLanguage.CPP, true, 0);
 		BindingAssertionHelper ba= new BindingAssertionHelper(code, true);
 		IFunction f= ba.assertNonProblem("h", 1, IFunction.class);
-		isTypeEqual(f.getType(), "void (int * (*)(C *))");
+		isTypeEqual(f.getType(), "void (int * (C *) *)");
 	}
 
 	// namespace A {
@@ -2054,7 +2054,7 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 	// *pi,
 	// f(),
 	// *fpi(int),
-	// (*pif)(const char*, const char*),
+	// (*pif)(const char*, const char*);
 	// (*fpif(int))(int);
 	public void test8_3_5s9a() throws Exception {
 		parse(getAboveComment(), ParserLanguage.CPP, true, 0);

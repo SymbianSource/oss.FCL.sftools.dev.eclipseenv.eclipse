@@ -139,8 +139,8 @@ int main() {
 	wchar_t ** argv = CommandLineToArgvW(GetCommandLine(), &argc);
 
 	// Make sure that we've been passed the right number of arguments
-	if (argc < 8) {
-		_tprintf(_T("Usage: %s (four inheritable event handles) (CommandLineToSpawn)\n"),
+	if (argc < 7) {
+		_tprintf(_T("Usage: %s (Three InheritableEventHandles) (CommandLineToSpawn)\n"),
 				argv[0]);
 		return(0);
 	}
@@ -151,7 +151,7 @@ int main() {
 	szCmdLine[0]= 0;
 	int nPos = 0;
 
-	for(int i = 7; i < argc; ++i)
+	for(int i = 6; i < argc; ++i)
 	{
 		int nCpyLen;
 		int len= wcslen(argv[i]);
@@ -192,11 +192,9 @@ int main() {
 
 	BOOL exitProc = FALSE;
 	HANDLE waitEvent = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[4]);
-	HANDLE h[4];
-	h[0] = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[3]);	// simulated SIGINT
-//  h[1] we reserve for the process handle
-	h[2] = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[5]); // simulated SIGTERM
-	h[3] = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[6]); // simulated SIGKILL
+	HANDLE h[3];
+	h[0] = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[3]);
+	h[2] = OpenEventW(EVENT_ALL_ACCESS, TRUE, argv[5]); // This is a terminate event
 	SetConsoleCtrlHandler(HandlerRoutine, TRUE);
 
 	int parentPid = wcstol(argv[1], NULL, 10);
@@ -308,10 +306,9 @@ int main() {
 		{
 			// Wait for the spawned-process to die or for the event
 			// indicating that the processes should be forcibly killed.
-			DWORD event = WaitForMultipleObjects(4, h, FALSE, INFINITE);
-			switch (event)
+			switch (WaitForMultipleObjects(3, h, FALSE, INFINITE))
 			{
-			case WAIT_OBJECT_0 + 0: // SIGINT
+			case WAIT_OBJECT_0 + 0: // Send Ctrl-C
 #ifdef DEBUG_MONITOR
 				swprintf(buffer, _T("starter (PID %i) received CTRL-C event\n"), currentPID);
 				OutputDebugStringW(buffer);
@@ -341,23 +338,16 @@ int main() {
 				GetExitCodeProcess(pi.hProcess, &dwExitCode);
 				exitProc = TRUE;
 				break;
-
-			// Terminate and Kill behavior differ only for cygwin processes, where
-			// we use the cygwin 'kill' command. We send a SIGKILL in one case,
-			// SIGTERM in the other. For non-cygwin processes, both requests
-			// are treated exactly the same
-			case WAIT_OBJECT_0 + 2:	// TERM
-			case WAIT_OBJECT_0 + 3:	// KILL
-			{
-				const wchar_t* signal = (event == WAIT_OBJECT_0 + 2) ? L"TERM" : L"KILL";
+				
+			case WAIT_OBJECT_0 + 2: // Kill
 #ifdef DEBUG_MONITOR
-				swprintf(buffer, _T("starter received %s event (PID %i)\n"), signal, currentPID);
+				swprintf(buffer, _T("starter received KILL event (PID %i)\n"), currentPID);
 				OutputDebugStringW(buffer);
 #endif
 				if (isCygwin(h[1])) {
 					// Need to issue a kill command
 					wchar_t kill[1024];
-					swprintf(kill, L"kill -%s %d", signal, pi.dwProcessId);
+					swprintf(kill, L"kill -SIGTERM %d", pi.dwProcessId);
 					if (!runCygwinCommand(kill)) {
 						// fall back to console event
 						GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
@@ -375,13 +365,10 @@ int main() {
 						DisplayErrorMessage();
 #endif
 					}
-				}
-
-				// Note that we keep trucking until the child process terminates (case WAIT_OBJECT_0 + 1)
+				} else
+				exitProc = TRUE;
 				break;
-			}
-
-			default:
+				default:
 				// Unexpected code
 #ifdef DEBUG_MONITOR
 				DisplayErrorMessage();
@@ -391,6 +378,7 @@ int main() {
 			}
 
 		}
+		CloseHandle(pi.hProcess);
 	} else {
 #ifdef DEBUG_MONITOR
 		swprintf(buffer, _T("Cannot start: %s\n"), szCmdLine);
@@ -409,7 +397,6 @@ int main() {
 	CloseHandle(h[0]);
 	CloseHandle(h[1]);
 	CloseHandle(h[2]);
-	CloseHandle(h[3]);
 
 	return(dwExitCode);
 }

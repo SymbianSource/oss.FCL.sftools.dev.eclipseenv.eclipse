@@ -12,9 +12,11 @@
 package org.eclipse.cdt.internal.core.pdom.dom.cpp;
 
 import org.eclipse.cdt.core.CCorePlugin;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPSpecialization;
+import org.eclipse.cdt.internal.core.Util;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPTypedefSpecialization;
 import org.eclipse.cdt.internal.core.index.CPPTypedefClone;
@@ -53,6 +55,8 @@ class PDOMCPPTypedefSpecialization extends PDOMCPPSpecialization
 			PDOMNode typeNode = parent.getLinkage().addType(this, type);
 			if (typeNode != null)
 				getDB().putRecPtr(record + TYPE, typeNode.getRecord());
+		} catch (DOMException e) {
+			throw new CoreException(Util.createStatus(e));
 		} finally {
 			if (typedef instanceof CPPTypedefSpecialization) {
 				((CPPTypedefSpecialization) typedef).incResolutionDepth(-1);
@@ -74,7 +78,7 @@ class PDOMCPPTypedefSpecialization extends PDOMCPPSpecialization
 		return IIndexCPPBindingConstants.CPP_TYPEDEF_SPECIALIZATION;
 	}
 
-	public IType getType() {
+	public IType getType() throws DOMException {
 		try {
 			PDOMNode node = getLinkage().getNode(getDB().getRecPtr(record + TYPE));
 			return node instanceof IType ? (IType)node : null;
@@ -87,16 +91,23 @@ class PDOMCPPTypedefSpecialization extends PDOMCPPSpecialization
 	public boolean isSameType(IType o) {
         if( this.equals(o) )
             return true;
-	    if( o instanceof ITypedef ) {
-			IType t = getType();
-			if( t != null )
-			    return t.isSameType( ((ITypedef)o).getType());
-			return false;
-		}
+	    if( o instanceof ITypedef )
+            try {
+                IType t = getType();
+                if( t != null )
+                    return t.isSameType( ((ITypedef)o).getType());
+                return false;
+            } catch ( DOMException e ) {
+                return false;
+            }
 	        
-        IType t = getType();
-		if( t != null )
-		    return t.isSameType( o );
+        try {
+		    IType t = getType();
+		    if( t != null )
+		        return t.isSameType( o );
+        } catch ( DOMException e ) {
+            return false;
+        }
 	    return false;
 	}
 

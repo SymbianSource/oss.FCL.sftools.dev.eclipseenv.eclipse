@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2009 QNX Software Systems and others.
+ * Copyright (c) 2005, 2008 QNX Software Systems and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -106,10 +106,19 @@ final class Chunk {
 	 * pointer is not moved past the BLOCK_HEADER_SIZE.
 	 */
 	public void putRecPtr(final long offset, final long value) {
-		putFreeRecPtr(offset, value == 0 ? value : value - Database.BLOCK_HEADER_SIZE);
+		if (!fDatabase.usesDensePointers()) {
+			putFreeRecPtr(offset, value);
+		} else {
+			putFreeRecPtr(offset, value == 0 ? value : value - Database.BLOCK_HEADER_SIZE);
+		}
+		return;
 	}
 	
 	public void putFreeRecPtr(final long offset, final long value) {
+		if (!fDatabase.usesDensePointers()) {
+			putInt(offset, (int) value);
+			return;
+		}
 		/*
 		 * This assert verifies the alignment. We expect the low bits to be clear.
 		 */
@@ -118,6 +127,9 @@ final class Chunk {
 	}
 	
 	public long getRecPtr(final long offset) {
+		if (!fDatabase.usesDensePointers()) {
+			return getInt(offset);
+		}
 		long address = getFreeRecPtr(offset);
 		return address != 0 ? (address + Database.BLOCK_HEADER_SIZE) : address;
 	}
@@ -125,6 +137,9 @@ final class Chunk {
 	
 	public long getFreeRecPtr(final long offset) {
 		int value = getInt(offset);
+		if (!fDatabase.usesDensePointers()) {
+			return value;
+		}
 		/*
 		 * We need to properly manage the integer that was read. The value will be sign-extended 
 		 * so if the most significant bit is set, the resulting long will look negative. By 

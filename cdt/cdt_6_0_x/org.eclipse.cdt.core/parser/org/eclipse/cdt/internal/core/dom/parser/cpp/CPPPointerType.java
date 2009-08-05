@@ -12,6 +12,7 @@
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
 import org.eclipse.cdt.core.dom.ast.ASTTypeUtil;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTPointer;
 import org.eclipse.cdt.core.dom.ast.IPointerType;
 import org.eclipse.cdt.core.dom.ast.IType;
@@ -70,7 +71,10 @@ public class CPPPointerType implements IPointerType, ITypeContainer {
 	    
 	    IPointerType pt = (IPointerType) o;
 	    if (isConst == pt.isConst() && isVolatile == pt.isVolatile()) {
-			return type.isSameType(pt.getType());
+			try {
+				return type.isSameType(pt.getType());
+			} catch (DOMException e) {
+			}
 	    }
 	    return false;
 	}

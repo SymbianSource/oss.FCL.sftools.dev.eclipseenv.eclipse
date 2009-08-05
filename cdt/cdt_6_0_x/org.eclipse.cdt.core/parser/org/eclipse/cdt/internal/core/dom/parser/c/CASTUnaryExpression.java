@@ -13,6 +13,7 @@
 package org.eclipse.cdt.internal.core.dom.parser.c;
 
 import org.eclipse.cdt.core.dom.ast.ASTVisitor;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTExpression;
 import org.eclipse.cdt.core.dom.ast.IASTNode;
 import org.eclipse.cdt.core.dom.ast.IASTUnaryExpression;
@@ -101,10 +102,14 @@ public class CASTUnaryExpression extends ASTNode implements IASTUnaryExpression,
 	public IType getExpressionType() {
 		IType type = getOperand().getExpressionType();
 		int op = getOperator();
-		if (op == IASTUnaryExpression.op_star && (type instanceof IPointerType || type instanceof IArrayType)) {
-			return ((ITypeContainer) type).getType();
-		} else if (op == IASTUnaryExpression.op_amper) {
-			return new CPointerType(type, 0);
+		try {
+			if (op == IASTUnaryExpression.op_star && (type instanceof IPointerType || type instanceof IArrayType)) {
+				return ((ITypeContainer) type).getType();
+			} else if (op == IASTUnaryExpression.op_amper) {
+				return new CPointerType(type, 0);
+			}
+		} catch (DOMException e) {
+			return e.getProblem();
 		}
 		return type;
 	}

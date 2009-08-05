@@ -54,6 +54,7 @@ public class ChooserComposite extends Composite {
 
 		boolean hasNoPredefinedReturnValue = true;
 		if (info.getInScopeDeclaredVariable() != null) {
+			info.getInScopeDeclaredVariable().setUserSetIsReturnValue(true);
 			hasNoPredefinedReturnValue = false;
 		}
 

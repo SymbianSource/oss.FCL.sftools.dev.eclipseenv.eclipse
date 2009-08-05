@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *     Andrew Niefer (IBM Corporation) - initial API and implementation
+ *     IBM Corporation - initial API and implementation
  *     Ed Swartz (Nokia)
  *     Markus Schorn (Wind River Systems)
  *     Andrew Ferguson (Symbian)
@@ -121,6 +121,9 @@ import org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.CPPSemantics;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.CPPVisitor;
 import org.eclipse.cdt.internal.core.parser.ParserException;
 
+/**
+ * @author aniefer
+ */
 public class AST2CPPTests extends AST2BaseTest {
 	
 	public AST2CPPTests() {
@@ -1086,7 +1089,7 @@ public class AST2CPPTests extends AST2BaseTest {
 		IFunction g = (IFunction) collector.getName(8).resolveBinding();
 		isTypeEqual(g.getType(), "void (char *)");
 		IFunction h = (IFunction) collector.getName(12).resolveBinding();
-		isTypeEqual(h.getType(), "void (int (*)())");
+		isTypeEqual(h.getType(), "void (int () *)");
 		
 		assertInstances(collector, f, 3);
 		assertInstances(collector, g, 2);
@@ -5743,10 +5746,10 @@ public class AST2CPPTests extends AST2BaseTest {
 		checkNewExpression(fdef, 10, IASTIdExpression.class, "int", IASTExpressionList.class);
 		checkNewExpression(fdef, 11, IASTIdExpression.class, "int", IASTIdExpression.class);
 
-		checkNewExpression(fdef, 12, null, "int [][]", null);
-		checkNewExpression(fdef, 13, IASTIdExpression.class, "int [][]", null);
-		checkNewExpression(fdef, 14, null, "int [][]", null);
-		checkNewExpression(fdef, 15, IASTIdExpression.class, "int [][]", null);
+		checkNewExpression(fdef, 12, null, "int [] []", null);
+		checkNewExpression(fdef, 13, IASTIdExpression.class, "int [] []", null);
+		checkNewExpression(fdef, 14, null, "int [] []", null);
+		checkNewExpression(fdef, 15, IASTIdExpression.class, "int [] []", null);
 	}
 
 	private void checkNewExpression(IASTFunctionDefinition fdef, int i_expr, Class<?> placement, String type, Class<?> init) {
@@ -7052,6 +7055,25 @@ public class AST2CPPTests extends AST2BaseTest {
 		parseAndCheckBindings(code, ParserLanguage.CPP);
 	}
 	
+	//	class C {
+	//		C& operator()() {return *this;}
+	//	};
+	//	void test() {
+	//		C c;
+	//		c()()()()()()()()()()()()()();
+	//	}
+	public void testNestedOverloadedFunctionCalls_Bug283324() throws Exception {
+		final String code = getAboveComment();
+		IASTTranslationUnit tu= parseAndCheckBindings(code, ParserLanguage.CPP);
+		IASTFunctionDefinition test= getDeclaration(tu, 1);
+		IASTExpressionStatement stmt= getStatement(test, 1);
+		long now= System.currentTimeMillis();
+		IType t= stmt.getExpression().getExpressionType();
+		assertInstance(t, ICPPReferenceType.class);
+		final long time = System.currentTimeMillis() - now;
+		assertTrue("Lasted " + time + "ms", time < 5000);
+	}
+	
 	
 	//	struct A { int a; };
 	//	struct B { int b; };
@@ -7122,7 +7144,7 @@ public class AST2CPPTests extends AST2BaseTest {
 	//		foo(L'a');
 	//	}
 	public void testWideCharacterLiteralTypes_Bug270892() throws Exception {
-		IASTTranslationUnit tu = parse( getAboveComment(), ParserLanguage.CPP ); 
+		IASTTranslationUnit tu = parse(getAboveComment(), ParserLanguage.CPP); 
 		CPPNameCollector col = new CPPNameCollector();
 		tu.accept(col);
 		
@@ -7180,122 +7202,53 @@ public class AST2CPPTests extends AST2BaseTest {
     	parseAndCheckBindings(code, ParserLanguage.CPP);
 	}
 	
-	//	int foo(int x);
-	//	int bar(int x);
-	//
-	//	typedef int (*fp)(int);
-	//	struct A {
-	//	        operator fp() { return foo; }
-	//	} a;
-	//
-	//	int i = bar(a(1));  // problem on bar
-	public void testCallToObjectOfClassType_267389() throws Exception {
-		final String code = getAboveComment();
-		parseAndCheckBindings(code, ParserLanguage.CPP);
-	}
-
-
-	// typedef int T;
-	// class C {
-	//    C(T);  // ctor
-	//    C(s);  // instance s;
-    // };
-	public void testDeclarationAmbiguity_Bug269953() throws Exception {
-		final String code = getAboveComment();
-		IASTTranslationUnit tu= parseAndCheckBindings(code, ParserLanguage.CPP);
-		ICPPASTCompositeTypeSpecifier ct= getCompositeType(tu, 1);
-		ICPPClassType c= (ICPPClassType) ct.getName().resolveBinding();
-
-		ICPPMethod[] methods= c.getDeclaredMethods();
-		assertEquals(1, methods.length);
-		assertEquals("C", methods[0].getName());
-
-		ICPPField[] fields= c.getDeclaredFields();
-		assertEquals(1, fields.length);
-		assertEquals("s", fields[0].getName());
-	}	
-	
-	//	class C3 {
-	//		C3(int);
-	//	};
-	//	typedef C3 T3;
-	//	T3::C3(int) {
-	//	}
-	public void testCTorWithTypedef_Bug269953() throws Exception {
-		final String code = getAboveComment();
-		parseAndCheckBindings(code, ParserLanguage.CPP);
-	}
-	
-	//	template<class T> class Compare {
-	//	    Compare();
-	//	    ~Compare();
-	//	    bool check;
-	//	};
-	//	typedef Compare<int> MY_COMPARE;
-	//	template<> MY_COMPARE::Compare() {}
-	public void testTemplateCTorWithTypedef_Bug269953() throws Exception {
-		final String code = getAboveComment();
-		parseAndCheckBindings(code, ParserLanguage.CPP);
-	}
-	
-	//	class IBase {
-	//		public:
-	//			virtual void base() = 0;
-	//	};
-	//
-	//	class IDerived : virtual public IBase {
-	//		public:
-	//			virtual void derived() = 0;
-	//	};
-	//
-	//	class BaseImplHelper : virtual public IBase {
-	//		public:
-	//			virtual void base() {}
-	//	};
-	//
-	//	class Derived : virtual public IDerived, public BaseImplHelper {
-	//		public:
-	//			virtual void derived() {}
-	//	};
-	//
-	//	int main() {
-	//		Derived d;
-	//		d.base(); // Parser log reports ambiguity on 'base'
-	//		return 0;
-	//	}
-	public void testHiddenVirtualBase_Bug282993() throws Exception {
-		final String code = getAboveComment();
-		parseAndCheckBindings(code, ParserLanguage.CPP);
-	}
-	
-	//	class C {
-	//		C& operator()() {return *this;}
-	//	};
-	//	void test() {
-	//		C c;
-	//		c()()()()()()()()()()()()()();
-	//	}
-	public void testNestedOverloadedFunctionCalls_Bug283324() throws Exception {
-		final String code = getAboveComment();
-		IASTTranslationUnit tu= parseAndCheckBindings(code, ParserLanguage.CPP);
-		IASTFunctionDefinition test= getDeclaration(tu, 1);
-		IASTExpressionStatement stmt= getStatement(test, 1);
-		long now= System.currentTimeMillis();
-		IType t= stmt.getExpression().getExpressionType();
-		assertInstance(t, ICPPReferenceType.class);
-		final long time = System.currentTimeMillis() - now;
-		assertTrue("Lasted " + time + "ms", time < 5000);
+	// typedef enum enum_name enum_name;
+	public void testTypedefRecursion_285457() throws Exception {
+		BindingAssertionHelper ba= new BindingAssertionHelper(getAboveComment(), true);
+		ba.assertProblem("enum_name", 9);
 	}
 
 	//	class A {
-	//	  friend inline void m(A p1, A p2) {}
+	//	  friend inline void m(A p) {}
 	//	};
 	//
-	//	void test(A a1, A a2) {
-	//	  m(a1, a2);
+	//	void test(A a) {
+	//	  m(a);
 	//	}
 	public void _testInlineFriendFunction_284690() throws Exception {
 		final String code = getAboveComment();
 		parseAndCheckBindings(code, ParserLanguage.CPP);
+	}
+
+	//	void f(int t);
+	//	void f(unsigned int t);
+	//	void f(long t);
+	//
+	//	enum IntEnum { i1 };
+	//	enum UnsignedEnum { u1 = 0x7FFFFFFF, u2 };
+	//	enum LongEnum { l1 = -1, l2 = 0x7FFFFFFF, l3 };
+	//
+	//	void test() {
+	//	  f(i1);
+	//	  f(u1);
+	//	  f(l1);
+	//	}
+	public void testEnumToIntConversion_285368() throws Exception {
+		BindingAssertionHelper ba= new BindingAssertionHelper(getAboveComment(), true);
+    	ICPPFunction f1 = ba.assertNonProblem("f(i1)", 1, ICPPFunction.class);
+    	IType t1 = f1.getType().getParameterTypes()[0];
+    	assertTrue(t1 instanceof ICPPBasicType);
+    	assertEquals(IBasicType.t_int, ((ICPPBasicType) t1).getType());
+    	assertEquals(0, ((ICPPBasicType) t1).getQualifierBits());
+    	ICPPFunction f2 = ba.assertNonProblem("f(u1)", 1, ICPPFunction.class);
+    	IType t2 = f2.getType().getParameterTypes()[0];
+    	assertTrue(t2 instanceof ICPPBasicType);
+    	assertEquals(IBasicType.t_int, ((ICPPBasicType) t2).getType());
+    	assertEquals(ICPPBasicType.IS_UNSIGNED, ((ICPPBasicType) t2).getQualifierBits());
+    	ICPPFunction f3 = ba.assertNonProblem("f(l1)", 1, ICPPFunction.class);
+    	IType t3 = f3.getType().getParameterTypes()[0];
+    	assertTrue(t3 instanceof ICPPBasicType);
+    	assertEquals(IBasicType.t_int, ((ICPPBasicType) t3).getType());
+    	assertEquals(ICPPBasicType.IS_LONG, ((ICPPBasicType) t3).getQualifierBits());
 	}
 }

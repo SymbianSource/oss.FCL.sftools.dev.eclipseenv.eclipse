@@ -39,7 +39,7 @@ public class PDOMSearchTreeLabelProvider extends PDOMSearchLabelProvider {
 		return text + " " //$NON-NLS-1$
 				+ Messages.format(CSearchMessages.CSearchResultCollector_matches, new Integer(count)); 
 	}
-
+	
 	@Override
 	public StyledString getStyledText(Object element) {
 		if (element instanceof TranslationUnit) {

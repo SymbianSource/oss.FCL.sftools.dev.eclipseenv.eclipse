@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2009 Wind River Systems, Inc. and others.
+ * Copyright (c) 2007 Wind River Systems, Inc. and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,7 @@
  *******************************************************************************/ 
 package org.eclipse.cdt.internal.core.dom.parser.cpp.semantics;
 
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTName;
 import org.eclipse.cdt.core.dom.ast.IASTNode;
 import org.eclipse.cdt.core.dom.ast.IASTUnaryExpression;
@@ -49,21 +50,30 @@ public final class CPPVariableReadWriteFlags extends VariableReadWriteFlags {
 			if (!(type instanceof ICPPReferenceType)) {
 				return READ;
 			}
-			type= ((ICPPReferenceType) type).getType();
+			try {
+				type= ((ICPPReferenceType) type).getType();
+			}
+			catch (DOMException e) {
+				return READ; 	// fallback
+			}
 		}
-		while(indirection > 0 && (type instanceof ITypeContainer)) {
-			if (type instanceof IPointerType) {
-				indirection--;
+		try {
+			while(indirection > 0 && (type instanceof ITypeContainer)) {
+				if (type instanceof IPointerType) {
+					indirection--;
+				}
+				type= ((ITypeContainer) type).getType();
 			}
-			type= ((ITypeContainer) type).getType();
+			if (indirection == 0) {
+				if (type instanceof IQualifierType) {
+					return ((IQualifierType) type).isConst() ? READ : READ | WRITE;
+				}
+				else if (type instanceof IPointerType) {
+					return ((IPointerType) type).isConst() ? READ : READ | WRITE;
+				}
+			}
 		}
-		if (indirection == 0) {
-			if (type instanceof IQualifierType) {
-				return ((IQualifierType) type).isConst() ? READ : READ | WRITE;
-			}
-			else if (type instanceof IPointerType) {
-				return ((IPointerType) type).isConst() ? READ : READ | WRITE;
-			}
+		catch (DOMException e) {
 		}
 		return READ | WRITE;	// fallback
 	}

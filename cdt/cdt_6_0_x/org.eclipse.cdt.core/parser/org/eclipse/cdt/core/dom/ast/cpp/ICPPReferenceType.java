@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.cdt.core.dom.ast.cpp;
 
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IType;
 
 /**
@@ -20,6 +21,8 @@ public interface ICPPReferenceType extends IType {
 	
 	/**
 	 * get the type that this is a reference of
+	 * 
+	 * @throws DOMException
 	 */
-	public IType getType();
+	public IType getType() throws DOMException;
 }

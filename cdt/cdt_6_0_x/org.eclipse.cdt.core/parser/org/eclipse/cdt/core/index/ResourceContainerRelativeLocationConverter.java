@@ -7,15 +7,15 @@
  *
  * Contributors:
  * Andrew Ferguson (Symbian) - Initial implementation
- *******************************************************************************/
-package org.eclipse.cdt.core.index;
+ *******************************************************************************/
+package org.eclipse.cdt.core.index;
 import org.eclipse.cdt.internal.core.index.IndexFileLocation;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Path;
 /**
  * A location converter for converting project resource locations to be relative to a specified container.
  * Resources outside of the associated project will not be converted (ignored).
@@ -35,7 +35,7 @@ public class ResourceContainerRelativeLocationConverter implements IIndexLocatio
 	public ResourceContainerRelativeLocationConverter(IContainer container) {
 		this.fullPath = container.getFullPath();
 		this.root = ResourcesPlugin.getWorkspace().getRoot();
-	}
+	}
 	/*
 	 * (non-Javadoc)
 	 * @see org.eclipse.cdt.core.index.IIndexLocationConverter#fromInternalFormat(java.lang.String)
@@ -43,7 +43,7 @@ public class ResourceContainerRelativeLocationConverter implements IIndexLocatio
 	public IIndexFileLocation fromInternalFormat(String raw) {
 		IResource member= root.getFile(fullPath.append(raw)); 
 		return new IndexFileLocation(member.getLocationURI(), member.getFullPath().toString());
-	}
+	}
 	/*
 	 * (non-Javadoc)
 	 * @see org.eclipse.cdt.core.index.IIndexLocationConverter#toInternalFormat(org.eclipse.cdt.core.index.IIndexFileLocation)
@@ -58,4 +58,4 @@ public class ResourceContainerRelativeLocationConverter implements IIndexLocatio
 		}
 		return null;
 	}
-}
+}

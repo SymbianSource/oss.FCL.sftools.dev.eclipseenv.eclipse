@@ -12,12 +12,9 @@
 package org.eclipse.cdt.internal.core.model;
 
 import java.io.File;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.eclipse.cdt.core.CCorePlugin;
 import org.eclipse.cdt.core.model.CModelException;
@@ -338,17 +335,17 @@ public class PathEntryUtil {
 	public static ICModelStatus validatePathEntry(ICProject cProject, IPathEntry[] entries) {
 
 		// Check duplication.
-		Set<IPathEntry> entrySet = new HashSet<IPathEntry>(entries.length);
 		for (IPathEntry entry : entries) {
-			if (entry != null) {
-				if (entrySet.contains(entry)) {
-					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, 
-							MessageFormat.format("{0}{1}", //$NON-NLS-1$
-									CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry"), //$NON-NLS-1$
-									entry.getPath().toString()));
+			if (entry == null) {
+				continue;
+			}
+			for (IPathEntry otherEntry : entries) {
+				if (otherEntry == null) {
+					continue;
 				}
-				else {
-					entrySet.add(entry);
+				if (entry != otherEntry && otherEntry.equals(entry)) {
+					StringBuffer errMesg = new StringBuffer(CCorePlugin.getResourceString("CoreModel.PathEntry.DuplicateEntry")); //$NON-NLS-1$
+					return new CModelStatus(ICModelStatusConstants.INVALID_PATHENTRY, errMesg.toString());
 				}
 			}
 		}

@@ -109,7 +109,7 @@ public class PDOMSearchLabelProvider extends LabelProvider implements IStyledLab
 		if (element instanceof LineSearchElement) {
 			return element.toString();
 		}
-
+		
 		if (element instanceof TypeInfoSearchElement) {
 			return fTypeInfoLabelProvider.getText(((TypeInfoSearchElement)element).getTypeInfo());
 		}
@@ -167,4 +167,5 @@ public class PDOMSearchLabelProvider extends LabelProvider implements IStyledLab
 		}
 		return styled;
 	}
+	
 }

@@ -17,8 +17,9 @@ package org.eclipse.cdt.core.dom.ast;
 public interface IPointerType extends IType {
     /**
      * get the type that this is a pointer to
+     * @throws DOMException
      */
-    public IType getType();
+    public IType getType() throws DOMException;
     
     /**
      * is this a const pointer

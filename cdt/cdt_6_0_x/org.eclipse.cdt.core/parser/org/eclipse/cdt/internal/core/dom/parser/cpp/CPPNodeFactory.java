@@ -7,7 +7,6 @@
  *
  * Contributors:
  *     Mike Kucera (IBM) - initial API and implementation
- *     Markus Schorn (Wind River Systems)
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
@@ -104,14 +103,12 @@ import org.eclipse.cdt.core.dom.ast.gnu.cpp.IGPPASTExplicitTemplateInstantiation
 import org.eclipse.cdt.core.dom.ast.gnu.cpp.IGPPASTPointer;
 import org.eclipse.cdt.core.dom.ast.gnu.cpp.IGPPASTPointerToMember;
 import org.eclipse.cdt.core.dom.ast.gnu.cpp.IGPPASTSimpleDeclSpecifier;
-import org.eclipse.cdt.core.parser.IScanner;
-import org.eclipse.cdt.internal.core.dom.parser.NodeFactory;
 
 
 /**
  * Abstract factory implementation that creates C++ AST nodes.
  */
-public class CPPNodeFactory extends NodeFactory implements ICPPNodeFactory {
+public class CPPNodeFactory implements ICPPNodeFactory {
 
 	private static final CPPNodeFactory DEFAULT_INSTANCE = new CPPNodeFactory();
 	
@@ -119,16 +116,9 @@ public class CPPNodeFactory extends NodeFactory implements ICPPNodeFactory {
 		return DEFAULT_INSTANCE;
 	}
 	
-	public ICPPASTTranslationUnit newTranslationUnit() {
-		return newTranslationUnit(null);
-	}
 	
-	public ICPPASTTranslationUnit newTranslationUnit(IScanner scanner) {
+	public ICPPASTTranslationUnit newTranslationUnit() {
 		CPPASTTranslationUnit tu = new CPPASTTranslationUnit();
-		
-		if (scanner != null) {
-			tu.setLocationResolver(scanner.getLocationResolver());
-		}
 		tu.setASTNodeFactory(this);
 		return tu;
 	}

@@ -6,8 +6,7 @@
  *  http://www.eclipse.org/legal/epl-v10.html
  * 
  *  Contributors:
- *     Mike Kucera (IBM Corporation) - initial API and implementation
- *     Markus Schorn (Wind River Systems)
+ *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.dom.parser.c;
 
@@ -78,15 +77,15 @@ import org.eclipse.cdt.core.dom.ast.gnu.IGNUASTCompoundStatementExpression;
 import org.eclipse.cdt.core.dom.ast.gnu.c.ICASTKnRFunctionDeclarator;
 import org.eclipse.cdt.core.dom.ast.gnu.c.IGCCASTArrayRangeDesignator;
 import org.eclipse.cdt.core.dom.ast.gnu.c.IGCCASTSimpleDeclSpecifier;
-import org.eclipse.cdt.core.parser.IScanner;
-import org.eclipse.cdt.internal.core.dom.parser.NodeFactory;
 
 /**
  * Abstract factory implementation that creates AST nodes for C99.
  * These can be overridden in subclasses to change the 
  * implementations of the nodes.
+ * 
+ * @author Mike Kucera
  */
-public class CNodeFactory extends NodeFactory implements ICNodeFactory {
+public class CNodeFactory implements ICNodeFactory {
 
 	private static final CNodeFactory DEFAULT_INSTANCE = new CNodeFactory();
 	
@@ -94,16 +93,9 @@ public class CNodeFactory extends NodeFactory implements ICNodeFactory {
 		return DEFAULT_INSTANCE;
 	}
 	
-	public IASTTranslationUnit newTranslationUnit() {
-		return newTranslationUnit(null);
-	}
 	
-	public IASTTranslationUnit newTranslationUnit(IScanner scanner) {
+	public IASTTranslationUnit newTranslationUnit() {
 		CASTTranslationUnit tu = new CASTTranslationUnit();
-		
-		if (scanner != null) {
-			tu.setLocationResolver(scanner.getLocationResolver());
-		}
 		tu.setASTNodeFactory(this);
 		return tu;
 	}

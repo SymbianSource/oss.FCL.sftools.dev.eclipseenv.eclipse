@@ -42,6 +42,6 @@ public interface IExecutableImporter {
 	/**
 	 * @since 6.0
 	 */
-	public boolean importExecutables(String[] fileNames, IProgressMonitor monitor);
+	public abstract boolean importExecutables(String[] fileNames, IProgressMonitor monitor);
 
 }

@@ -61,17 +61,20 @@ public class PDOMCFunctionType extends PDOMNode implements IIndexType, IFunction
 	public PDOMCFunctionType(PDOMLinkage linkage, PDOMNode parent, IFunctionType type) throws CoreException {
 		super(linkage, parent);
 
-		PDOMNodeLinkedList list= new PDOMNodeLinkedList(parent.getLinkage(), record + TYPELIST, true);
-		setReturnType(type.getReturnType());
-		IType[] pt= type.getParameterTypes();
-		for (IType element : pt) {
-			PDOMNode typeNode;
-			if (element == null || element instanceof IProblemBinding) {
-				typeNode= null;
-			} else {
-				typeNode= linkage.addType(this, element);
+		try {
+			PDOMNodeLinkedList list= new PDOMNodeLinkedList(parent.getLinkage(), record + TYPELIST, true);
+			setReturnType(type.getReturnType());
+			IType[] pt= type.getParameterTypes();
+			for (int i = 0; i < pt.length; i++) {
+				PDOMNode typeNode;
+				if (pt[i] == null || pt[i] instanceof IProblemBinding) {
+					typeNode= null;
+				} else {
+					typeNode= linkage.addType(this, pt[i]);
+				}
+				list.addMember(typeNode);
 			}
-			list.addMember(typeNode);
+		} catch (DOMException de) {
 		}
 	}
 

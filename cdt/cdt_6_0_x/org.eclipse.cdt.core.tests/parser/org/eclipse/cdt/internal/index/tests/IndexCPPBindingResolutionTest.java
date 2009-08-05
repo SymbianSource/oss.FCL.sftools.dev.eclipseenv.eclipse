@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2009 Symbian Software Systems and others.
+ * Copyright (c) 2007, 2008 Symbian Software Systems and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,7 +24,6 @@ import org.eclipse.cdt.core.dom.ast.IBinding;
 import org.eclipse.cdt.core.dom.ast.ICompositeType;
 import org.eclipse.cdt.core.dom.ast.IEnumeration;
 import org.eclipse.cdt.core.dom.ast.IEnumerator;
-import org.eclipse.cdt.core.dom.ast.IFunction;
 import org.eclipse.cdt.core.dom.ast.IPointerType;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.IValue;
@@ -1364,19 +1363,6 @@ public abstract class IndexCPPBindingResolutionTest extends IndexBindingResoluti
 		assertNotNull(numericalValue);
 		assertEquals(i, numericalValue.intValue());
 	}
-	
-	// void f(int (&v)[1]);
-	// void f(int (&v)[2]);
-	
-	// void test() {
-	//   int a[1], b[2];
-	//   f(a); f(b);
-	// }
-	public void testArrayTypeWithSize_269926() throws Exception {
-    	IFunction f1= getBindingFromASTName("f(a)", 1, IFunction.class);
-    	IFunction f2= getBindingFromASTName("f(b)", 1, IFunction.class);
-    	assertFalse(f1.equals(f2));
-	}
 
 	/* CPP assertion helpers */
 	/* ##################################################################### */
@@ -1470,14 +1456,18 @@ public abstract class IndexCPPBindingResolutionTest extends IndexBindingResoluti
  	 * @param qn may be null
  	 */
 	static protected void assertPTM(IType type, String cqn, String qn) {
-		assertTrue(type instanceof ICPPPointerToMemberType);
-		ICPPPointerToMemberType ptmt = (ICPPPointerToMemberType) type;
-		ICPPClassType classType = (ICPPClassType) ptmt.getMemberOfClass();
-		assertQNEquals(cqn, classType);
-		if(qn!=null) {
-			assert(ptmt.getType() instanceof ICPPBinding);
-			ICPPBinding tyBinding = (ICPPBinding) ptmt.getType();
-			assertQNEquals(qn, tyBinding);
+		try {
+			assertTrue(type instanceof ICPPPointerToMemberType);
+			ICPPPointerToMemberType ptmt = (ICPPPointerToMemberType) type;
+			ICPPClassType classType = (ICPPClassType) ptmt.getMemberOfClass();
+			assertQNEquals(cqn, classType);
+			if(qn!=null) {
+				assert(ptmt.getType() instanceof ICPPBinding);
+				ICPPBinding tyBinding = (ICPPBinding) ptmt.getType();
+				assertQNEquals(qn, tyBinding);
+			}
+		} catch(DOMException de) {
+			fail(de.getMessage());
 		}
 	}
 }

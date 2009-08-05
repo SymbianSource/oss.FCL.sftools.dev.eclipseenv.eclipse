@@ -33,7 +33,6 @@ import org.eclipse.cdt.internal.core.model.CoreModelMessages;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.Path;
 
 /**
  * Creates labels for ICElement objects.
@@ -759,14 +758,7 @@ public class CElementBaseLabels {
 		if (rootQualified) {
 			buf.append(container.getPath().makeRelative().toString());
 		} else {
-			if (CCorePlugin.showSourceRootsAtTopOfProject()) {
-				buf.append(container.getElementName());
-			}
-			else {
-				String elementName = container.getElementName();
-				IPath path = new Path(elementName);
-				buf.append(path.lastSegment());
-			}
+			buf.append(container.getElementName());
 			if (getFlag(flags, ROOT_QUALIFIED)) {
 				if (resource != null && container instanceof ISourceRoot && isReferenced((ISourceRoot)container)) {
 					buf.append(CONCAT_STRING);

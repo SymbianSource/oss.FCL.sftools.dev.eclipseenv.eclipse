@@ -13,6 +13,7 @@
 package org.eclipse.cdt.internal.core.dom.parser.c;
 
 import org.eclipse.cdt.core.dom.ast.ASTVisitor;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTExpression;
 import org.eclipse.cdt.core.dom.ast.IASTFunctionCallExpression;
 import org.eclipse.cdt.core.dom.ast.IASTNode;
@@ -114,10 +115,14 @@ public class CASTFunctionCallExpression extends ASTNode implements
 
 	public IType getExpressionType() {
 		IType type = getFunctionNameExpression().getExpressionType();
-		while (type instanceof ITypeContainer)
-			type = ((ITypeContainer) type).getType();
-		if (type instanceof IFunctionType)
-			return ((IFunctionType) type).getReturnType();
+		try {
+			while (type instanceof ITypeContainer)
+				type = ((ITypeContainer) type).getType();
+			if (type instanceof IFunctionType)
+				return ((IFunctionType) type).getReturnType();
+		} catch (DOMException e) {
+			return e.getProblem();
+		}
 		return null;
 	}
 }

@@ -27,8 +27,6 @@ public class HideMethodTestSuite extends TestSuite {
 		TestSuite suite = new HideMethodTestSuite();
 		suite.addTest(RefactoringTester.suite("HideMethodRefactoringTests",
 				"resources/refactoring/HideMethod.rts"));
-		suite.addTest(RefactoringTester.suite("HideMethodRefactoringHistoryTests",
-		"resources/refactoring/HideMethodHistory.rts"));
 		return suite;
 	}
 }

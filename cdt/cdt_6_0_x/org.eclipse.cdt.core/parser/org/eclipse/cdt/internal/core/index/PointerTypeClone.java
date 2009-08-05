@@ -6,17 +6,21 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Bryan Wilkinson (QNX) - Initial API and implementation
+ *    QNX - Initial API and implementation
  *    Markus Schorn (Wind River Systems)
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.index;
 
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IPointerType;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPPointerToMemberType;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 
+/**
+ * @author Bryan Wilkinson
+ */
 public class PointerTypeClone implements IPointerType, ITypeContainer, IIndexType {
 	protected final IPointerType delegate;
 	private IType type;
@@ -25,7 +29,7 @@ public class PointerTypeClone implements IPointerType, ITypeContainer, IIndexTyp
 		this.delegate = pointer;
 	}
 
-	public IType getType() {
+	public IType getType() throws DOMException {
 		if (type == null) {
 			return delegate.getType();
 		}
@@ -51,11 +55,14 @@ public class PointerTypeClone implements IPointerType, ITypeContainer, IIndexTyp
 	        return false;
 
 		IPointerType rhs = (IPointerType) type;
-		if (isConst() == rhs.isConst() && isVolatile() == rhs.isVolatile()) {
-			IType type1= getType();
-			if (type1 != null) {
-				return type1.isSameType(rhs.getType());
+		try {
+			if (isConst() == rhs.isConst() && isVolatile() == rhs.isVolatile()) {
+				IType type1= getType();
+				if (type1 != null) {
+					return type1.isSameType(rhs.getType());
+				}
 			}
+		} catch (DOMException e) {
 		}
 		return false;
 	}

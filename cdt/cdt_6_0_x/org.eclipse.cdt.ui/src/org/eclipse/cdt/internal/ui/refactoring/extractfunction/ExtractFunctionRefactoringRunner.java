@@ -26,9 +26,12 @@ import org.eclipse.cdt.internal.ui.refactoring.RefactoringRunner;
  *
  */
 public class ExtractFunctionRefactoringRunner extends RefactoringRunner  {
+	
+	private ICProject project;
 
-	public ExtractFunctionRefactoringRunner(IFile file, ISelection selection, IShellProvider shellProvider, ICProject cProject) {
-		super(file, selection, null, shellProvider, cProject);
+	public ExtractFunctionRefactoringRunner(IFile file, ISelection selection, IShellProvider shellProvider, ICProject project) {
+		super(file, selection, null, shellProvider);
+		this.project = project;
 	}
 
 	@Override

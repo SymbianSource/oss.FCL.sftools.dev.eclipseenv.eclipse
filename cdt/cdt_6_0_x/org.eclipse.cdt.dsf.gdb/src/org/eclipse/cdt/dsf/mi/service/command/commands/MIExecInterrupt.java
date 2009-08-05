@@ -42,8 +42,8 @@ public class MIExecInterrupt extends MICommand<MIInfo>
     }
     
     /**
-	 * @since 2.1
-	 */
+     * @since 2.0
+     */
     public MIExecInterrupt(IExecutionDMContext dmc, String groupId) {
     	this(dmc, false, groupId);
     }

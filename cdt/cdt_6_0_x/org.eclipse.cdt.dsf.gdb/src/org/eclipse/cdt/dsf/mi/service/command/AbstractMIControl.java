@@ -44,7 +44,6 @@ import org.eclipse.cdt.dsf.mi.service.IMIExecutionDMContext;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MICommand;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIStackSelectFrame;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIThreadSelect;
-import org.eclipse.cdt.dsf.mi.service.command.commands.RawCommand;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIConst;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIInfo;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIList;
@@ -68,8 +67,6 @@ import org.eclipse.core.runtime.Status;
 public abstract class AbstractMIControl extends AbstractDsfService
     implements ICommandControlService
 {
-	private static final String MI_TRACE_IDENTIFIER = " [MI]  "; //$NON-NLS-1$
-	
     /*
 	 *  Thread control variables for the transmit and receive threads.
 	 */
@@ -320,12 +317,7 @@ public abstract class AbstractMIControl extends AbstractDsfService
 					}
 				}
 
-				if (!(handle.getCommand() instanceof RawCommand)) {
-					// Only generate a token id if the command is not a RawCommand
-					// RawCommands are sent to GDB without an answer expected, so we don't
-					// need a token id.  In fact, GDB will fail if we send one in this case.
-					handle.generateTokenId();
-				}
+		    	handle.generateTokenId();
 		    	fTxCommands.add(handle);
 			}
 		}
@@ -536,10 +528,7 @@ public abstract class AbstractMIControl extends AbstractDsfService
                     /*
                      *  We note that this is an outstanding request at this point.
                      */
-                    if (!(commandHandle.getCommand() instanceof RawCommand)) {
-                    	// RawCommands will not get an answer, so we cannot put them in the receive queue.
-                    	fRxCommands.put(commandHandle.getTokenId(), commandHandle);
-                    }
+                    fRxCommands.put(commandHandle.getTokenId(), commandHandle);
                 }
                 
                 /*
@@ -551,9 +540,6 @@ public abstract class AbstractMIControl extends AbstractDsfService
                 if (fUseThreadAndFrameOptions && commandHandle.getCommand().supportsThreadAndFrameOptions()) {
                 	str = commandHandle.getTokenId() + commandHandle.getCommand().constructCommand(commandHandle.getThreadId(),
                 			                                                                       commandHandle.getStackFrameId());
-                } else if (commandHandle.getCommand() instanceof RawCommand) {
-                	// RawCommands CANNOT have a token id: GDB would read it as part of the RawCommand!
-                	str = commandHandle.getCommand().constructCommand();
                 } else {
                 	str = commandHandle.getTokenId() + commandHandle.getCommand().constructCommand();
                 }
@@ -563,7 +549,7 @@ public abstract class AbstractMIControl extends AbstractDsfService
                         fOutputStream.write(str.getBytes());
                         fOutputStream.flush();
 
-                        GdbPlugin.debug(GdbPlugin.getDebugTime() + MI_TRACE_IDENTIFIER + str);
+                        GdbPlugin.debug(GdbPlugin.getDebugTime() + " " + str); //$NON-NLS-1$
                         getExecutor().execute(new DsfRunnable() {
                         	public void run() {
                         		if (getMITracingStream() != null) {
@@ -615,7 +601,7 @@ public abstract class AbstractMIControl extends AbstractDsfService
                 String line;
                 while ((line = reader.readLine()) != null) {
                     if (line.length() != 0) {
-                        GdbPlugin.debug(GdbPlugin.getDebugTime() + MI_TRACE_IDENTIFIER + line + "\n"); //$NON-NLS-1$
+                        GdbPlugin.debug(GdbPlugin.getDebugTime() + " " + line +"\n"); //$NON-NLS-1$ //$NON-NLS-2$
                         
                         final String finalLine = line;
                         getExecutor().execute(new DsfRunnable() {

@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2009 QNX Software Systems and others.
+ * Copyright (c) 2007 QNX Software Systems and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Bryan Wilkinson (QNX) - Initial API and implementation
+ * QNX - Initial API and implementation
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.index;
 
@@ -15,10 +15,11 @@ import org.eclipse.cdt.core.dom.ast.IASTExpression;
 import org.eclipse.cdt.core.dom.ast.IArrayType;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
-import org.eclipse.cdt.core.dom.ast.IValue;
-import org.eclipse.cdt.core.parser.util.CharArrayUtils;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 
+/**
+ * @author Bryan Wilkinson
+ */
 public class ArrayTypeClone implements IIndexType, IArrayType, ITypeContainer {
 	private final IArrayType delegate;
 	private IType type;
@@ -34,33 +35,23 @@ public class ArrayTypeClone implements IIndexType, IArrayType, ITypeContainer {
 		if (!(type instanceof IArrayType)) 
 			return false;
 
-		IType type1= this.getType();
-		if (type1 == null)
-			return false;
-
-		IArrayType rhs = (IArrayType) type;
-		if (type1.isSameType(rhs.getType())) {
-			IValue s1= getSize();
-			IValue s2= rhs.getSize();
-			if (s1 == s2)
-				return true;
-			if (s1 == null || s2 == null)
+		try {
+			IType type1= this.getType();
+			if (type1 == null)
 				return false;
-			return CharArrayUtils.equals(s1.getSignature(), s2.getSignature());
+
+			IArrayType rhs = (IArrayType) type;
+			return type1.isSameType(rhs.getType());
+		} catch (DOMException e) {
 		}
 		return false;
 	}
 
-	public IValue getSize() {
-		return delegate.getSize();
-	}
-	
-	@Deprecated
 	public IASTExpression getArraySizeExpression() throws DOMException {
 		return delegate.getArraySizeExpression();
 	}
 
-	public IType getType() {
+	public IType getType() throws DOMException {
 		if (type == null) {
 			return delegate.getType();
 		}

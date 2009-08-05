@@ -271,10 +271,6 @@ public class ExecutablesView extends ViewPart {
 			public void selectionChanged(SelectionChangedEvent event) {
 				ISelection newSelection = event.getSelection();
 				if (newSelection instanceof IStructuredSelection) {
-					
-					// update the remove action
-					removeAction.setEnabled(!newSelection.isEmpty());
-					
 					final Object firstElement = ((IStructuredSelection) newSelection).getFirstElement();
 					
 					Job setectExeJob = new Job(Messages.ExecutablesView_Select_Executable) {
@@ -285,19 +281,20 @@ public class ExecutablesView extends ViewPart {
 								Executable executable = (Executable)firstElement;
 								this.setName(Messages.ExecutablesView_Finding_Sources_Job_Name + executable.getName());
 								executable.getSourceFiles(monitor);
-
-								UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
-									@Override
-									public IStatus runInUIThread(IProgressMonitor monitor) {
-										sourceFilesViewer.setInput(firstElement);
-										sourceFilesViewer.packColumns();
-										return Status.OK_STATUS;
-									}};
-								selectExeUIJob.schedule();								
 							}
-							return Status.OK_STATUS;
+							UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
+								@Override
+								public IStatus runInUIThread(IProgressMonitor monitor) {
+									sourceFilesViewer.setInput(firstElement);
+									if (firstElement instanceof Executable) {
+										sourceFilesViewer.packColumns();
+									}
+									return Status.OK_STATUS;
+								}};
+								selectExeUIJob.schedule();								
+								return Status.OK_STATUS;
 						}};
-					setectExeJob.schedule();
+						setectExeJob.schedule();
 				}
 			}
 		});
@@ -363,7 +360,6 @@ public class ExecutablesView extends ViewPart {
 
 	private Action createRemoveAction() {
 		Action action = new Action("Remove") {
-			
 			public void run() {				
 				ISelection selection = getExecutablesViewer().getSelection();
 				if (selection instanceof IStructuredSelection)
@@ -408,7 +404,7 @@ public class ExecutablesView extends ViewPart {
 		action.setToolTipText("Remove the selected executables");
 		action.setImageDescriptor(ExecutablesView.DESC_REMOVE);
 		action.setDisabledImageDescriptor(ExecutablesView.DESC_REMOVE_DISABLED);
-		action.setEnabled(false);
+		action.setEnabled(true);
 		return action;
 	}
 
@@ -464,7 +460,7 @@ public class ExecutablesView extends ViewPart {
 	private Action createRefreshAction() {
 		Action action = new Action(Messages.ExecutablesView_Refresh) {
 			public void run() {
-				ExecutablesManager.getExecutablesManager().refresh(null);
+				ExecutablesManager.getExecutablesManager().scheduleRefresh(null, 0);
 			}
 		};
 		action.setToolTipText(Messages.ExecutablesView_RefreshList);

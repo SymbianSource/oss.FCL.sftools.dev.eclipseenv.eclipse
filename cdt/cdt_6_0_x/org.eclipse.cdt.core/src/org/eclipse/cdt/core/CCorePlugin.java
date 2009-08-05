@@ -28,12 +28,12 @@ import com.ibm.icu.text.MessageFormat;
 
 import org.eclipse.cdt.core.cdtvariables.ICdtVariableManager;
 import org.eclipse.cdt.core.cdtvariables.IUserVarSupplier;
+import org.eclipse.cdt.core.dom.CDOM;
 import org.eclipse.cdt.core.dom.IPDOMManager;
 import org.eclipse.cdt.core.envvar.IEnvironmentVariableManager;
 import org.eclipse.cdt.core.index.IIndexManager;
 import org.eclipse.cdt.core.model.CModelException;
 import org.eclipse.cdt.core.model.CoreModel;
-import org.eclipse.cdt.core.model.ILanguage;
 import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.cdt.core.model.IWorkingCopy;
 import org.eclipse.cdt.core.parser.IScannerInfoProvider;
@@ -95,11 +95,10 @@ public class CCorePlugin extends Plugin {
 	public static final int STATUS_CDTPROJECT_MISMATCH = 2;
 	public static final int CDT_PROJECT_NATURE_ID_MISMATCH = 3;
 	/**
-	 * Status code for core exception that is thrown if a pdom grew larger than the supported limit.
-	 * @since 5.2
+	 * Will be public and final in the next CDT version.
+	 * @noreference
 	 */
-	public static final int STATUS_PDOM_TOO_LARGE = 4;
-
+	public static int STATUS_PDOM_TOO_LARGE = 4;
 	public static final String PLUGIN_ID = "org.eclipse.cdt.core"; //$NON-NLS-1$
 
 	public static final String BUILDER_MODEL_ID = PLUGIN_ID + ".CBuildModel"; //$NON-NLS-1$
@@ -1008,12 +1007,8 @@ public class CCorePlugin extends Plugin {
 		return getPluginPreferences().getBoolean(PREF_USE_STRUCTURAL_PARSE_MODE);
 	}
 	
-	/**
-	 * @deprecated use {@link ITranslationUnit} or {@link ILanguage} to construct ASTs, instead.
-	 */
-	@Deprecated
-	public org.eclipse.cdt.core.dom.CDOM getDOM() {
-	    return org.eclipse.cdt.core.dom.CDOM.getInstance();
+	public CDOM getDOM() {
+	    return CDOM.getInstance();
 	}
 
 	public ICdtVariableManager getCdtVariableManager(){
@@ -1266,15 +1261,5 @@ public class CCorePlugin extends Plugin {
 	@Deprecated
 	public static IPDOMManager getPDOMManager() {
 		return getDefault().pdomManager;
-	}
-
-	/**
-	 * Returns preference controlling whether source roots are shown at the top of projects
-	 * or embedded within the resource tree of projects when they are not top level folders.
-	 * 
-	 * @return boolean preference value
-	 */
-	public static boolean showSourceRootsAtTopOfProject() {
-		return getDefault().getPluginPreferences().getBoolean( CCorePreferenceConstants.SHOW_SOURCE_ROOTS_AT_TOP_LEVEL_OF_PROJECT);
 	}
 }

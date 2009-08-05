@@ -28,7 +28,6 @@ import org.eclipse.cdt.dsf.datamodel.IDMContext;
 import org.eclipse.cdt.dsf.internal.DsfPlugin;
 import org.eclipse.cdt.dsf.service.DsfSession;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 
 /**
@@ -159,56 +158,6 @@ public class CommandCache implements ICommandListener
     
     private ArrayList<CommandInfo> fPendingQWaitingForCoalescedCompletion = new ArrayList<CommandInfo>();
     
-    private static boolean DEBUG = false;
-	private static final String CACHE_TRACE_IDENTIFIER = " [CHE]"; //$NON-NLS-1$
-	private static String BLANK_CACHE_TRACE_IDENTIFIER = ""; //$NON-NLS-1$
-	static {
-        DEBUG = "true".equals(Platform.getDebugOption("org.eclipse.cdt.dsf/debugCache"));  //$NON-NLS-1$//$NON-NLS-2$
-		for (int i=0; i<CACHE_TRACE_IDENTIFIER.length(); i++) {
-			BLANK_CACHE_TRACE_IDENTIFIER += " "; //$NON-NLS-1$
-		}
-    }  
-
-	private void debug(String message) {
-		debug(message, ""); //$NON-NLS-1$
-    }
-    
-    private void debug(String message, String prefix) {
-    	if (DEBUG) {
-    		// The message can span more than one line
-    		String[] multiLine = message.split("\n"); //$NON-NLS-1$
-    		
-			// Create a blank prefix for proper alignment
-    		String blankPrefix = ""; //$NON-NLS-1$
-    		for (int i=0; i<prefix.length(); i++) {
-    			blankPrefix += " "; //$NON-NLS-1$
-    		}
-
-    		for (int i = 0; i < multiLine.length; i++) {
-    			String traceIdentifier;
-    			if (i == 0) {
-    	    		// For the first line we prepend the cache identifier string
-    				traceIdentifier = CACHE_TRACE_IDENTIFIER + prefix;
-    				
-    			} else {
-    	    		// For all other lines we prepend a blank prefix for proper alignment
-    				traceIdentifier = BLANK_CACHE_TRACE_IDENTIFIER + blankPrefix;
-    			}
-    				
-    			message = DsfPlugin.getDebugTime() + traceIdentifier + 
-    						" " + multiLine[i]; //$NON-NLS-1$
-
-    			// Make sure our lines are not too long
-    			while (message.length() > 100) {
-    				String partial = message.substring(0, 100) + "\\"; //$NON-NLS-1$
-    				message = message.substring(100);
-    				System.out.println(partial);
-    			}
-    			System.out.println(message);
-    		}
-    	}
-    }
-
     public CommandCache(DsfSession session, ICommandControl control) {
         fSession = session;
         fCommandControl = control;
@@ -307,15 +256,12 @@ public class CommandCache implements ICommandListener
          */ 
         if(fCachedContexts.get(context) != null && fCachedContexts.get(context).containsKey(cachedCmd)){
         	CommandResultInfo result = fCachedContexts.get(context).get(cachedCmd);
-        	debug(command.toString().trim());
             if (result.getStatus().getSeverity() <= IStatus.INFO) {
             	@SuppressWarnings("unchecked") 
             	V v = (V)result.getData();
             	rm.setData(v);
-            	debug(v.toString());
             } else {
             	rm.setStatus(result.getStatus());
-            	debug(result.getStatus().toString());
             }
             rm.done();
             return;
@@ -325,8 +271,6 @@ public class CommandCache implements ICommandListener
          *  Return an error if the target is available anymore.
          */ 
         if (!isTargetAvailable(command.getContext())) {
-        	debug(command.toString().trim(), "[N/A]"); //$NON-NLS-1$
-
             rm.setStatus(new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, IDsfStatusConstants.INVALID_STATE, "Target not available.", null)); //$NON-NLS-1$
             rm.done();
             return;
@@ -339,14 +283,12 @@ public class CommandCache implements ICommandListener
         for ( CommandInfo sentCommand : fPendingQCommandsSent ) {
             if ( sentCommand.equals( cachedCmd )) {
                 sentCommand.getRequestMonitorList().add(genericDone);
-            	debug(command.toString().trim(), "[SNT]"); //$NON-NLS-1$
                 return;
             }
         }
         for ( CommandInfo notYetSentCommand : fPendingQCommandsNotYetSent ) {
             if ( notYetSentCommand.equals( cachedCmd )) {
                 notYetSentCommand.getRequestMonitorList().add(genericDone);
-            	debug(command.toString().trim(), "[SND]"); //$NON-NLS-1$
                 return;
             }
         }

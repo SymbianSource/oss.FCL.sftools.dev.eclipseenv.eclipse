@@ -72,37 +72,35 @@ public class IndexUpdatePolicy {
 		return fIndexer;
 	}
 
-	public boolean isAutomatic() {
-		return fKind != MANUAL;
-	}
-	
 	public IPDOMIndexerTask handleDelta(ITranslationUnit[] force, ITranslationUnit[] changed, ITranslationUnit[] removed) {
 		if (isNullIndexer()) {
 			return null;
 		}
 
 		switch(fKind) {
-		case MANUAL:
+		case IndexUpdatePolicy.MANUAL:
 			return null;
-		case POST_CHANGE:
+		case IndexUpdatePolicy.POST_CHANGE:
 			if (fIndexer != null) {
 				return fIndexer.createTask(force, changed, removed);
 			}
 			break;
 		}
 		
-		for (ITranslationUnit tu : removed) {
+		for (int i = 0; i < removed.length; i++) {
+			ITranslationUnit tu = removed[i];
 			fForce.remove(tu);
 			fTimestamp.remove(tu);
 			fRemoved.add(tu);
 		}
-		for (ITranslationUnit tu : force) {
+		for (int i = 0; i < force.length; i++) {
+			ITranslationUnit tu = force[i];
 			fForce.add(tu);
 			fTimestamp.remove(tu);
 			fRemoved.remove(tu);
 		}
-		for (ITranslationUnit element : changed) {
-			ITranslationUnit tu = element;
+		for (int i = 0; i < changed.length; i++) {
+			ITranslationUnit tu = changed[i];
 			if (!fForce.contains(tu)) {
 				fTimestamp.add(tu);
 			}

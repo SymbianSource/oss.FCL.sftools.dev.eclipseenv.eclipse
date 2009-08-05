@@ -13,10 +13,7 @@ package org.eclipse.cdt.core.dom.ast;
 
 import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.TDEF;
 
-import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.LinkedList;
-import java.util.List;
 
 import org.eclipse.cdt.core.dom.ast.c.ICArrayType;
 import org.eclipse.cdt.core.dom.ast.c.ICBasicType;
@@ -39,7 +36,6 @@ import org.eclipse.cdt.core.parser.GCCKeywords;
 import org.eclipse.cdt.core.parser.Keywords;
 import org.eclipse.cdt.core.parser.util.ArrayUtil;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
-import org.eclipse.cdt.internal.core.dom.parser.Value;
 import org.eclipse.cdt.internal.core.dom.parser.c.CASTTypeId;
 import org.eclipse.cdt.internal.core.dom.parser.c.CVisitor;
 import org.eclipse.cdt.internal.core.dom.parser.c.ICInternalBinding;
@@ -59,6 +55,7 @@ public class ASTTypeUtil {
 	private static final String COMMA_SPACE = ", "; //$NON-NLS-1$
 	private static final String EMPTY_STRING = ""; //$NON-NLS-1$
 	private static final String SPACE = " "; //$NON-NLS-1$
+	private static final String[] EMPTY_STRING_ARRAY = new String[0];
 	private static final int DEAULT_ITYPE_SIZE = 2;
 
 	/**
@@ -183,7 +180,13 @@ public class ASTTypeUtil {
 	 * @see #getType(IType, boolean)
 	 */
 	public static String[] getParameterTypeStringArray(IFunctionType type) {
-		IType[] parms = type.getParameterTypes();
+		IType[] parms = null;
+		try {
+			parms = type.getParameterTypes();
+		} catch (DOMException e) {
+			return EMPTY_STRING_ARRAY;
+		}
+		
 		String[] result = new String[parms.length];
 		
 		for (int i = 0; i < parms.length; i++) {
@@ -203,46 +206,28 @@ public class ASTTypeUtil {
 			result.append(Keywords.cpLBRACKET);
 			if (type instanceof ICArrayType) {
 				try {
-					final ICArrayType catype = (ICArrayType) type;
-					if (catype.isConst()) {
+					if (((ICArrayType) type).isConst()) {
 						result.append(Keywords.CONST); needSpace = true;
 					}
-					if (catype.isRestrict()) {
+					if (((ICArrayType) type).isRestrict()) {
 						if (needSpace) {
 							result.append(SPACE); needSpace = false;
 						}
 						result.append(Keywords.RESTRICT); needSpace = true;
 					}
-					if (catype.isStatic()) {
+					if (((ICArrayType) type).isStatic()) {
 						if (needSpace) {
 							result.append(SPACE); needSpace = false;
 						}
 						result.append(Keywords.STATIC); needSpace = true;
 					}
-					if (catype.isVolatile()) {
+					if (((ICArrayType) type).isVolatile()) {
 						if (needSpace) {
 							result.append(SPACE); needSpace = false;
 						}
 						result.append(Keywords.VOLATILE);
 					}
 				} catch (DOMException e) {
-				}
-			} 
-			IValue val= ((IArrayType) type).getSize();
-			if (val != null && val != Value.UNKNOWN) {
-				if (normalize) {
-					if (needSpace) {
-						result.append(SPACE); needSpace = false;
-					}
-					result.append(val.getSignature());
-				} else {
-					Long v= val.numericalValue();
-					if (v != null) {
-						if (needSpace) {
-							result.append(SPACE); needSpace = false;
-						}
-						result.append(v.longValue());
-					}
 				}
 			}
 			result.append(Keywords.cpRBRACKET);
@@ -394,13 +379,23 @@ public class ASTTypeUtil {
 			result.append(SPACE);
 			result.append(getNameForAnonymous((IEnumeration) type));
 		} else if (type instanceof IFunctionType) {
-			String temp = getParameterTypeString((IFunctionType) type);
-			if (temp != null && !temp.equals(EMPTY_STRING)) {
-				result.append(temp); needSpace = false;
-			}
-			if (type instanceof ICPPFunctionType) {
-				ICPPFunctionType ft= (ICPPFunctionType) type;
-				needSpace= appendCVQ(result, needSpace, ft.isConst(), ft.isVolatile());
+			try {
+				String temp = getType(((IFunctionType) type).getReturnType(), normalize);
+				if (temp != null && !temp.equals(EMPTY_STRING)) {
+					result.append(temp); needSpace = true;
+				}
+				if (needSpace) {
+					result.append(SPACE); needSpace = false;
+				}
+				temp = getParameterTypeString((IFunctionType) type);
+				if (temp != null && !temp.equals(EMPTY_STRING)) {
+					result.append(temp); needSpace = false;
+				}
+				if (type instanceof ICPPFunctionType) {
+					ICPPFunctionType ft= (ICPPFunctionType) type;
+					needSpace= appendCVQ(result, needSpace, ft.isConst(), ft.isVolatile());
+				}
+			} catch (DOMException e) {
 			}
 		} else if (type instanceof IPointerType) {
 			if (type instanceof ICPPPointerToMemberType) {
@@ -515,67 +510,31 @@ public class ASTTypeUtil {
 				}
 			}
 			if (type instanceof ITypeContainer) {
-				type = ((ITypeContainer) type).getType();
-			} else if (type instanceof IFunctionType) {
-				type= ((IFunctionType) type).getReturnType();
+				try {
+					type = ((ITypeContainer) type).getType();
+				} catch (DOMException e) {
+					type= null;
+				}
 			} else {
 				type= null;
 			}
 		}	 
 		
 		// pop all of the types off of the stack, and build the string representation while doing so
-		List<IType> postfix= null;
-		BitSet parenthesis= null;
-		boolean needParenthesis= false;
 		for (int j = types.length - 1; j >= 0; j--) {
-			IType tj = types[j];
-			if (tj != null) {
-				if (j > 0 && types[j - 1] instanceof IQualifierType) {
-					if (result.length() > 0)
-						result.append(SPACE); // only add a space if this is not the first type being added
-					result.append(getTypeString(types[j - 1], normalize));
-					result.append(SPACE);
-					result.append(getTypeString(tj, normalize));
-					--j;
-				} else {
-					// handle post-fix 
-					if (tj instanceof IFunctionType || tj instanceof IArrayType) {
-						if (j == 0) {
-							if (result.length() > 0)
-								result.append(SPACE); // only add a space if this is not the first type being added
-							result.append(getTypeString(tj, normalize));
-						} else {
-							if (postfix == null) {
-								postfix= new ArrayList<IType>();
-							}
-							postfix.add(tj);
-							needParenthesis= true;
-						}
-					} else {
-						if (result.length() > 0)
-							result.append(SPACE); // only add a space if this is not the first type being added
-						if (needParenthesis && postfix != null) {
-							result.append('(');
-							if (parenthesis == null) {
-								parenthesis= new BitSet();
-							}
-							parenthesis.set(postfix.size()-1);
-						}
-						result.append(getTypeString(tj, normalize));
-						needParenthesis= false;
-					}
-				}
-			}
-		}
+			if (types[j] != null && result.length() > 0)
+				result.append(SPACE); // only add a space if this is not the first type being added
 
-		if (postfix != null) {
-			for (int j = postfix.size() - 1; j >= 0; j--) {
-				if (parenthesis != null && parenthesis.get(j)) {
-					result.append(')');
-				}
-				IType tj = postfix.get(j);
-				result.append(getTypeString(tj, normalize));
-			}
+			if (types[j] != null) {
+                if (j > 0 && types[j - 1] instanceof IQualifierType) {
+                    result.append(getTypeString(types[j - 1], normalize));
+                    result.append(SPACE);
+                    result.append(getTypeString(types[j], normalize));
+                    --j;
+                } else {
+                    result.append(getTypeString(types[j], normalize));
+                }
+            }
 		}
 
 		return result.toString();
@@ -667,24 +626,54 @@ public class ASTTypeUtil {
 	}
 	
 	/**
-	 * @deprecated don't use it does something strange
+	 * This can be used to invoke the IType's isConst() if it has an isConst() method.
+     * This returns the result of that invoked isConst() method.
+     * It is a convenience function so that the structure of IType does not need
+	 * to be known to determine if the IType is const or not.
+     *
+     * Note:  false is returned if no isConst() method is found
+     * 
+	 * @param type
 	 */
-	@Deprecated
 	public static boolean isConst(IType type) {
 		if (type instanceof IQualifierType) {
 			return ((IQualifierType) type).isConst();
 		} else if (type instanceof ITypeContainer) {
-			return isConst(((ITypeContainer) type).getType());
+			try {
+				return isConst(((ITypeContainer) type).getType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else if (type instanceof IArrayType) {
-			return isConst(((IArrayType) type).getType());
+			try {
+				return isConst(((IArrayType) type).getType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else if (type instanceof ICPPReferenceType) {
-			return isConst(((ICPPReferenceType) type).getType());
+			try {
+				return isConst(((ICPPReferenceType) type).getType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else if (type instanceof IFunctionType) {
-			return isConst(((IFunctionType) type).getReturnType());
+			try {
+				return isConst(((IFunctionType) type).getReturnType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else if (type instanceof IPointerType) {
-			return isConst(((IPointerType) type).getType());
+			try {
+				return isConst(((IPointerType) type).getType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else if (type instanceof ITypedef) {
-			return isConst(((ITypedef) type).getType());
+			try {
+				return isConst(((ITypedef) type).getType());
+			} catch (DOMException e) {
+				return false;
+			}
 		} else {
 			return false;
 		}

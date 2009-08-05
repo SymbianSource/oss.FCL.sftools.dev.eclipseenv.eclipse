@@ -12,7 +12,6 @@
 package org.eclipse.cdt.internal.ui.preferences;
 
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Preferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
@@ -29,8 +28,6 @@ import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.PlatformUI;
 import org.osgi.service.prefs.BackingStoreException;
 
-import org.eclipse.cdt.core.CCorePlugin;
-import org.eclipse.cdt.core.CCorePreferenceConstants;
 import org.eclipse.cdt.ui.CUIPlugin;
 import org.eclipse.cdt.ui.PreferenceConstants;
 
@@ -50,7 +47,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 	private SelectionButtonDialogField fCViewGroupIncludes;
 	private SelectionButtonDialogField fCViewSeparateHeaderAndSource;
 	private SelectionButtonDialogField fOutlineGroupMembers;
-	private SelectionButtonDialogField fShowSourceRootsAtTopOfProject;
 	
 	public AppearancePreferencePage() {
 		setPreferenceStore(PreferenceConstants.getPreferenceStore());
@@ -85,12 +81,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		fCViewSeparateHeaderAndSource= new SelectionButtonDialogField(SWT.CHECK);
 		fCViewSeparateHeaderAndSource.setDialogFieldListener(listener);
 		fCViewSeparateHeaderAndSource.setLabelText(PreferencesMessages.AppearancePreferencePage_cviewSeparateHeaderAndSource_label); 
-	
-		fShowSourceRootsAtTopOfProject= new SelectionButtonDialogField(SWT.CHECK);
-		fShowSourceRootsAtTopOfProject.setDialogFieldListener(listener);
-		fShowSourceRootsAtTopOfProject.setLabelText(PreferencesMessages.AppearancePreferencePage_showSourceRootsAtTopOfProject_label); 
-		
-	
 	}
 
 	private void initFields() {
@@ -101,8 +91,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		fOutlineGroupIncludes.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_INCLUDES));
 		fOutlineGroupNamespaces.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_NAMESPACES));
 		fOutlineGroupMembers.setSelection(prefs.getBoolean(PreferenceConstants.OUTLINE_GROUP_MEMBERS));
-		boolean showSourceRootsAtTopOfProject = CCorePlugin.showSourceRootsAtTopOfProject();
-		fShowSourceRootsAtTopOfProject.setSelection(showSourceRootsAtTopOfProject);
 	}
 	
 	/*
@@ -146,10 +134,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		gd.horizontalSpan= 2;
 		noteControl.setLayoutData(gd);
 		
-		
-		new Separator().doFillIntoGrid(result, nColumns);
-		fShowSourceRootsAtTopOfProject.doFillIntoGrid(result, nColumns);
-		
 		initFields();
 		
 		Dialog.applyDialogFont(result);
@@ -192,8 +176,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		} catch (BackingStoreException exc) {
 			CUIPlugin.log(exc);
 		}
-		CCorePlugin.getDefault().getPluginPreferences().setValue(CCorePreferenceConstants.SHOW_SOURCE_ROOTS_AT_TOP_LEVEL_OF_PROJECT, fShowSourceRootsAtTopOfProject.isSelected());
-		CCorePlugin.getDefault().savePluginPreferences();
 		return super.performOk();
 	}
 	
@@ -209,8 +191,6 @@ public class AppearancePreferencePage extends PreferencePage implements IWorkben
 		fOutlineGroupIncludes.setSelection(prefs.getDefaultBoolean(PreferenceConstants.OUTLINE_GROUP_INCLUDES));
 		fOutlineGroupNamespaces.setSelection(prefs.getDefaultBoolean(PreferenceConstants.OUTLINE_GROUP_NAMESPACES));
 		fOutlineGroupMembers.setSelection(prefs.getDefaultBoolean(PreferenceConstants.OUTLINE_GROUP_MEMBERS));
-		Preferences corePrefs = CCorePlugin.getDefault().getPluginPreferences();
-		fShowSourceRootsAtTopOfProject.setSelection(corePrefs.getDefaultBoolean(CCorePreferenceConstants.SHOW_SOURCE_ROOTS_AT_TOP_LEVEL_OF_PROJECT));
 		super.performDefaults();
 	}
 }

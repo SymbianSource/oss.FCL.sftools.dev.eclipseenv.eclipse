@@ -55,7 +55,7 @@ public class PDOMSearchListLabelProvider extends PDOMSearchLabelProvider {
 		
 		return text;
 	}
-
+	
 	@Override
 	public StyledString getStyledText(Object element) {
 		if (!(element instanceof LineSearchElement))

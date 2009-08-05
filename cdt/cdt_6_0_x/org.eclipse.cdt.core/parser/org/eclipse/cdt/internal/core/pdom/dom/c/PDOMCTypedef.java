@@ -95,7 +95,8 @@ class PDOMCTypedef extends PDOMBinding implements ITypedef, ITypeContainer, IInd
 					return true;
 				}
 				IType[] params= ft.getParameterTypes();
-				for (IType param : params) {
+				for (int i = 0; i < params.length; i++) {
+					IType param = params[i];
 					if (introducesRecursion(param, tdname)) {
 						return true;
 					}
@@ -130,14 +131,18 @@ class PDOMCTypedef extends PDOMBinding implements ITypedef, ITypeContainer, IInd
 	}
 
 	public boolean isSameType(IType type) {
-		IType myrtype = getType();
-		if (myrtype == null)
-			return false;
-		
-		if (type instanceof ITypedef) {
-			type= ((ITypedef)type).getType();
+		try {
+			IType myrtype = getType();
+			if (myrtype == null)
+				return false;
+			
+			if (type instanceof ITypedef) {
+				type= ((ITypedef)type).getType();
+			}
+			return myrtype.isSameType(type);
+		} catch (DOMException e) {
 		}
-		return myrtype.isSameType(type);
+		return false;
 	}
 
 	@Override

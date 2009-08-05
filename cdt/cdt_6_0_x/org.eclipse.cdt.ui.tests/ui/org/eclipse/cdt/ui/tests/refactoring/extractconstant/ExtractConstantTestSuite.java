@@ -27,8 +27,6 @@ public class ExtractConstantTestSuite extends TestSuite {
 		TestSuite suite = new ExtractConstantTestSuite();
 		suite.addTest(RefactoringTester.suite("ExtractConstantRefactoringTest",
 				"resources/refactoring/ExtractConstant.rts"));
-		suite.addTest(RefactoringTester.suite("ExtractConstantHistoryRefactoringTest",
-		"resources/refactoring/ExtractConstantHistory.rts"));
 		return suite;
 	}
 }

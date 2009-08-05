@@ -6,33 +6,31 @@
  *  http://www.eclipse.org/legal/epl-v10.html
  * 
  *  Contributors:
- *     Andrew Niefer (IBM Corporation) - initial API and implementation
- *     Markus Schorn (Wind River Systems)
+ *     IBM Corporation - initial API and implementation
  *******************************************************************************/
+
+/*
+ * Created on Dec 13, 2004
+ */
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
 import org.eclipse.cdt.core.dom.ast.ASTTypeUtil;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTExpression;
 import org.eclipse.cdt.core.dom.ast.IArrayType;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
-import org.eclipse.cdt.core.dom.ast.IValue;
-import org.eclipse.cdt.core.parser.util.CharArrayUtils;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
-import org.eclipse.cdt.internal.core.dom.parser.Value;
 
+/**
+ * @author aniefer
+ */
 public class CPPArrayType implements IArrayType, ITypeContainer {
     private IType type;
     private IASTExpression sizeExpression;
-    private IValue value= Value.NOT_INITIALIZED;
-
+    
     public CPPArrayType(IType type) {
         this.type = type;
-    }
-    
-    public CPPArrayType(IType type, IValue value) {
-    	this.type= type;
-    	this.value= value;
     }
     
     public CPPArrayType(IType type, IASTExpression sizeExp) {
@@ -55,34 +53,20 @@ public class CPPArrayType implements IArrayType, ITypeContainer {
             return ((ITypedef) obj).isSameType(this);
         
         if (obj instanceof IArrayType) {
-            final IArrayType rhs = (IArrayType) obj;
-			IType objType = rhs.getType();
-			if (objType != null) {
-				if (objType.isSameType(type)) {
-					IValue s1= getSize();
-					IValue s2= rhs.getSize();
-					if (s1 == s2)
-						return true;
-					if (s1 == null || s2 == null)
-						return false;
-					return CharArrayUtils.equals(s1.getSignature(), s2.getSignature());
-				}
-			}
+            try {
+            	IType objType = ((IArrayType) obj).getType();
+            	if (objType != null)
+            		return objType.isSameType(type);
+            } catch (DOMException e) {
+                return false;
+            }
         }
     	return false;
     }
-
-    public IValue getSize() {
-    	if (value != Value.NOT_INITIALIZED)
-    		return value;
-    	
-    	if (sizeExpression == null)
-    		return value= null;
-
-    	return value= Value.create(sizeExpression, Value.MAX_RECURSION_DEPTH);
-    }
     
-    @Deprecated
+    /* (non-Javadoc)
+     * @see org.eclipse.cdt.core.dom.ast.IArrayType#getArraySizeExpression()
+     */
     public IASTExpression getArraySizeExpression() {
         return sizeExpression;
     }

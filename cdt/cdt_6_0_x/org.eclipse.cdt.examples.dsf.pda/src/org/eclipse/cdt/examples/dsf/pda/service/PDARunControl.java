@@ -34,7 +34,6 @@ import org.eclipse.cdt.examples.dsf.pda.service.commands.PDACommandResult;
 import org.eclipse.cdt.examples.dsf.pda.service.commands.PDAResumeCommand;
 import org.eclipse.cdt.examples.dsf.pda.service.commands.PDAStepCommand;
 import org.eclipse.cdt.examples.dsf.pda.service.commands.PDAStepReturnCommand;
-import org.eclipse.cdt.examples.dsf.pda.service.commands.PDASuspendCommand;
 import org.eclipse.cdt.examples.dsf.pda.service.commands.PDAVMResumeCommand;
 import org.eclipse.cdt.examples.dsf.pda.service.commands.PDAVMSuspendCommand;
 import org.osgi.framework.BundleContext;
@@ -555,7 +554,7 @@ public class PDARunControl extends AbstractDsfService
                 final PDAThreadDMContext threadCtx = (PDAThreadDMContext)context;
                 fThreads.get(threadCtx.getID()).fSuspendPending = true;
                 fCommandControl.queueCommand(
-                    new PDASuspendCommand(threadCtx),
+                    new PDAVMSuspendCommand(fDMContext),
                     new DataRequestMonitor<PDACommandResult>(getExecutor(), rm) { 
                         @Override
                         protected void handleFailure() {

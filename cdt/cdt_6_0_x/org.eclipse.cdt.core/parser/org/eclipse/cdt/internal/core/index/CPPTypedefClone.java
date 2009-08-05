@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2009 QNX Software Systems and others.
+ * Copyright (c) 2007, 2008 QNX Software Systems and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Bryan Wilkinson (QNX) - Initial API and implementation
+ * QNX - Initial API and implementation
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.index;
 
@@ -20,6 +20,9 @@ import org.eclipse.cdt.core.dom.ast.cpp.ICPPBinding;
 import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 import org.eclipse.core.runtime.CoreException;
 
+/**
+ * @author Bryan Wilkinson
+ */
 public class CPPTypedefClone implements ITypedef, ITypeContainer, IIndexType, ICPPBinding {
 	protected final ITypedef delegate;
 	private IType type;
@@ -28,7 +31,7 @@ public class CPPTypedefClone implements ITypedef, ITypeContainer, IIndexType, IC
 		this.delegate = typedef;
 	}
 
-	public IType getType() {
+	public IType getType() throws DOMException {
 		if (type == null) {
 			return delegate.getType();
 		}
@@ -61,14 +64,18 @@ public class CPPTypedefClone implements ITypedef, ITypeContainer, IIndexType, IC
 	}
 
 	public boolean isSameType(IType type) {
-		IType myrtype = getType();
-		if (myrtype == null)
-			return false;
+		try {
+			IType myrtype = getType();
+			if (myrtype == null)
+				return false;
 
-		if (type instanceof ITypedef) {
-			type= ((ITypedef) type).getType();
+			if (type instanceof ITypedef) {
+				type= ((ITypedef) type).getType();
+			}
+			return myrtype.isSameType(type);
+		} catch (DOMException e) {
 		}
-		return myrtype.isSameType(type);
+		return false;
 	}
 
 	public void setType(IType type) {

@@ -7,7 +7,6 @@
  *
  * Contributors:
  *     Andrew Niefer (IBM Corporation) - initial API and implementation
- *     Markus Schorn (Wind River Systems)
  *******************************************************************************/
 package org.eclipse.cdt.core.dom.ast;
 
@@ -18,14 +17,9 @@ package org.eclipse.cdt.core.dom.ast;
 public interface IArrayType extends IType {
     /**
      * get the type that this is an array of
+     * @throws DOMException
      */
-    IType getType();
-    
-    /**
-     * Returns the value for the size of the array type, or <code>null</code> if it is unspecified.
-     * @since 5.2
-     */
-    IValue getSize();
+    IType getType() throws DOMException;
     
     /**
      * get the expression that represents the size of this array

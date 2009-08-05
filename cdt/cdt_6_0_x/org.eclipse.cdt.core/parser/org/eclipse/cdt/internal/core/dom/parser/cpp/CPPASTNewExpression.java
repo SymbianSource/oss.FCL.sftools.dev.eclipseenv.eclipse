@@ -13,6 +13,7 @@
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
 import org.eclipse.cdt.core.dom.ast.ASTVisitor;
+import org.eclipse.cdt.core.dom.ast.DOMException;
 import org.eclipse.cdt.core.dom.ast.IASTArrayDeclarator;
 import org.eclipse.cdt.core.dom.ast.IASTArrayModifier;
 import org.eclipse.cdt.core.dom.ast.IASTDeclarator;
@@ -252,7 +253,11 @@ public class CPPASTNewExpression extends ASTNode implements
     public IType getExpressionType() {
 		IType t= CPPVisitor.createType(getTypeId());
 		if (t instanceof IArrayType) {
-			t= ((IArrayType) t).getType();
+			try {
+				t= ((IArrayType) t).getType();
+			} catch (DOMException e) {
+				return e.getProblem();
+			}
 		}
 		return new CPPPointerType(t);
     }

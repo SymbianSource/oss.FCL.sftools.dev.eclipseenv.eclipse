@@ -34,7 +34,6 @@ import org.eclipse.cdt.dsf.mi.service.IMIProcesses;
 import org.eclipse.cdt.dsf.mi.service.IMIRunControl;
 import org.eclipse.cdt.dsf.mi.service.MIRunControl;
 import org.eclipse.cdt.dsf.mi.service.MIStack;
-import org.eclipse.cdt.dsf.mi.service.command.commands.CLIRecord;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakDelete;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakInsert;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MICommand;
@@ -45,6 +44,7 @@ import org.eclipse.cdt.dsf.mi.service.command.commands.MIExecReverseNextInstruct
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIExecReverseStep;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIExecReverseStepInstruction;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIExecUncall;
+import org.eclipse.cdt.dsf.mi.service.command.commands.RawCommand;
 import org.eclipse.cdt.dsf.mi.service.command.events.MIBreakpointHitEvent;
 import org.eclipse.cdt.dsf.mi.service.command.events.MIInferiorExitEvent;
 import org.eclipse.cdt.dsf.mi.service.command.events.MIStoppedEvent;
@@ -424,15 +424,27 @@ public class GDBRunControl_7_0 extends MIRunControl implements IReverseRunContro
     		return;
     	}
     	
-    	getConnection().queueCommand(
-    			new CLIRecord(context, enable),
-    			new DataRequestMonitor<MIInfo>(getExecutor(), rm) {
-    				@Override
-    				public void handleSuccess() {
-    					setReverseModeEnabled(enable);
-    					rm.done();
-    				}
-    			});
+    	if (enable) {
+        	getConnection().queueCommand(
+        			new RawCommand(context, "record"), //$NON-NLS-1$
+        			new DataRequestMonitor<MIInfo>(getExecutor(), rm) {
+        				@Override
+        				public void handleSuccess() {
+        					setReverseModeEnabled(true);
+        					rm.done();
+        				}
+        			});
+    	} else {
+        	getConnection().queueCommand(
+        			new RawCommand(context, "record stop"), //$NON-NLS-1$
+        			new DataRequestMonitor<MIInfo>(getExecutor(), rm) {
+        				@Override
+        				public void handleSuccess() {
+        					setReverseModeEnabled(false);
+        					rm.done();
+        				}
+        			});
+    	}
 	}
     
 	/** @since 2.0 */

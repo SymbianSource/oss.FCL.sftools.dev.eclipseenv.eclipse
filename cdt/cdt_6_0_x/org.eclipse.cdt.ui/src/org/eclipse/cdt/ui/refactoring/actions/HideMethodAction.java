@@ -38,7 +38,7 @@ public class HideMethodAction extends RefactoringAction {
 	@Override
 	public void run(IShellProvider shellProvider, ICElement elem) {
 		if (elem instanceof ISourceReference) {
-			new HideMethodRefactoringRunner(null, null, elem, shellProvider, elem.getCProject()).run();
+			new HideMethodRefactoringRunner(null, null, elem, shellProvider).run();
 		}
 	}
 
@@ -48,7 +48,7 @@ public class HideMethodAction extends RefactoringAction {
 		if (res instanceof IFile) {
 			new HideMethodRefactoringRunner((IFile) res, 
 					fEditor.getSelectionProvider().getSelection(), null, 
-					fEditor.getSite().getWorkbenchWindow(), wc.getCProject()).run();
+					fEditor.getSite().getWorkbenchWindow()).run();
 		}
 	}
 

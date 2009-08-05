@@ -12,6 +12,7 @@
 
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
+import org.eclipse.cdt.core.dom.ast.IASTParameterDeclaration;
 import org.eclipse.cdt.core.dom.ast.IBinding;
 
 /**
@@ -19,11 +20,8 @@ import org.eclipse.cdt.core.dom.ast.IBinding;
  */
 public interface ICPPInternalFunction extends ICPPInternalBinding {
 
-	/**
-	 * Called to resolve the parameter in the second phase.
-	 */
-	public IBinding resolveParameter(CPPParameter parameter);
-	
+    public IBinding resolveParameter( IASTParameterDeclaration param );
+    
     /**
      * Returns whether there is a static declaration for this function.
      * @param resolveAll checks for names that are not yet resolved to this binding.

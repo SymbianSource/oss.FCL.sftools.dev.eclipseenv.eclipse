@@ -166,6 +166,7 @@ import org.eclipse.cdt.internal.core.dom.parser.cpp.GPPBasicType;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.GPPPointerToMemberType;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.GPPPointerType;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.ICPPInternalBinding;
+import org.eclipse.cdt.internal.core.dom.parser.cpp.ICPPInternalFunction;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.ICPPUnknownBinding;
 import org.eclipse.cdt.internal.core.index.IIndexScope;
 
@@ -366,9 +367,11 @@ public class CPPVisitor extends ASTQueries {
 		
 		// 7.1.5.3-2 ... If name lookup does not find a declaration for the name, the elaborated-type-specifier is ill-formed
 		// unless it is of the simple form class-key identifier
-	    if (mustBeSimple && elabType.getName() instanceof ICPPASTQualifiedName)
+	    if (mustBeSimple && 
+	    		(elabType.getName() instanceof ICPPASTQualifiedName || elabType.getKind() == IASTElaboratedTypeSpecifier.k_enum)) {
 	    	return binding;
-	    
+	    }
+
         try {
         	boolean template = false;
         	ICPPScope scope = (ICPPScope) getContainingScope(name);
@@ -453,7 +456,6 @@ public class CPPVisitor extends ASTQueries {
         }
 		return binding;
 	}
-	
 	private static IBinding createBinding(IASTDeclaration declaration) {
 		if (declaration instanceof ICPPASTNamespaceDefinition) {
 			ICPPASTNamespaceDefinition namespaceDef = (ICPPASTNamespaceDefinition) declaration;
@@ -499,7 +501,6 @@ public class CPPVisitor extends ASTQueries {
 
 		return null;
 	}
-	
 	private static IBinding createBinding(IASTDeclarator declarator) {
 		IASTNode parent = findOutermostDeclarator(declarator).getParent();
 		declarator= findInnermostDeclarator(declarator);
@@ -557,13 +558,16 @@ public class CPPVisitor extends ASTQueries {
 				if (!(findOutermostDeclarator(fdtor).getParent() instanceof IASTDeclaration) ||
 						findTypeRelevantDeclarator(fdtor) != fdtor)
 					return null;
-				IASTParameterDeclaration[] params = fdtor.getParameters();
-				int i=0;
-				for(;i<params.length; i++) {
-					if (params[i] == param)
-						break;
+				IBinding temp = findInnermostDeclarator(fdtor).getName().resolveBinding();
+				if (temp instanceof ICPPInternalFunction) {
+					return ((ICPPInternalFunction) temp).resolveParameter(param);
+				} else if (temp instanceof IProblemBinding) {
+				    //problems with the function, still create binding for the parameter
+				    return new CPPParameter(name);
+				} else if (temp instanceof IIndexBinding) {
+					return new CPPParameter(name);
 				}
-				return new CPPParameter(name, i);
+				return null;
 			} else if (parent instanceof ICPPASTTemplateDeclaration) {
 				return CPPTemplates.createBinding(param);
 			}
@@ -598,15 +602,40 @@ public class CPPVisitor extends ASTQueries {
         
         IASTSimpleDeclaration simpleDecl = (parent instanceof IASTSimpleDeclaration) ?
         		(IASTSimpleDeclaration) parent : null;
-        if (simpleDecl != null &&
+        if (parent instanceof ICPPASTParameterDeclaration) {
+			ICPPASTParameterDeclaration param = (ICPPASTParameterDeclaration) parent;
+			parent = param.getParent();
+			if (parent instanceof IASTStandardFunctionDeclarator) {
+				IASTStandardFunctionDeclarator fdtor = (IASTStandardFunctionDeclarator) param.getParent();
+				// if the fdtor does not declare a function we don't create a binding for the parameter.
+				if (!(findOutermostDeclarator(fdtor).getParent() instanceof IASTDeclaration) ||
+						findTypeRelevantDeclarator(fdtor) != fdtor)
+					return null;
+				IBinding temp = findInnermostDeclarator(fdtor).getName().resolveBinding();
+				if (temp instanceof ICPPInternalFunction) {
+					binding = ((ICPPInternalFunction) temp).resolveParameter(param);
+				} else if (temp instanceof IProblemBinding) {
+				    //problems with the function, still create binding for the parameter
+				    binding = new CPPParameter(name);
+				} else if (temp instanceof IIndexBinding) {
+					binding= new CPPParameter(name);
+				}
+			} else if (parent instanceof ICPPASTTemplateDeclaration) {
+				return CPPTemplates.createBinding(param);
+			}
+		} else if (simpleDecl != null &&
 				simpleDecl.getDeclSpecifier().getStorageClass() == IASTDeclSpecifier.sc_typedef) {
 		    if (binding instanceof ICPPInternalBinding && binding instanceof ITypedef && name.isActive()) {
-		        IType t1 = ((ITypedef) binding).getType();
-				IType t2 = createType(declarator);
-				if (t1 != null && t2 != null && t1.isSameType(t2)) {
-				    ASTInternal.addDeclaration(binding, name);
-				    return binding;
-				}
+		        try {
+                    IType t1 = ((ITypedef) binding).getType();
+                    IType t2 = createType(declarator);
+                    if (t1 != null && t2 != null && t1.isSameType(t2)) {
+                        ASTInternal.addDeclaration(binding, name);
+                        return binding;
+                    }
+                } catch (DOMException e) {
+                	return e.getProblem();
+                }
                 return new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDECLARATION);
 		    }
 		    // if we don't resolve the target type first, we get a problem binding in case the typedef
@@ -619,10 +648,6 @@ public class CPPVisitor extends ASTQueries {
 			if (binding instanceof ICPPInternalBinding && binding instanceof IFunction && name.isActive()) {
 			    IFunction function = (IFunction) binding;
 			    if (CPPSemantics.isSameFunction(function, funcDeclarator)) {
-			    	binding= CPPSemantics.checkDeclSpecifier(binding, name, parent);
-			    	if (binding instanceof IProblemBinding)
-			    		return binding;
-
 			        ICPPInternalBinding internal = (ICPPInternalBinding) function;
 			        if (parent instanceof IASTSimpleDeclaration) {
 			            ASTInternal.addDeclaration(internal, name);
@@ -653,7 +678,6 @@ public class CPPVisitor extends ASTQueries {
 				binding = template ? (ICPPFunction) new CPPFunctionTemplate(name)
 								   : new CPPFunction((ICPPASTFunctionDeclarator) funcDeclarator);
 			}
-			binding= CPPSemantics.checkDeclSpecifier(binding, name, parent);
 		} else if (simpleDecl != null) {
     	    IType t1 = null, t2 = null;
 		    if (binding != null && binding instanceof IVariable && !(binding instanceof IIndexBinding)) {
@@ -664,7 +688,7 @@ public class CPPVisitor extends ASTQueries {
                 }
 		    }
 		    if (t1 != null && t2 != null) {
-				if (t1.isSameType(t2) || isCompatibleArray(t1, t2) != null) {
+		    	if (t1.isSameType(t2)) {
 		    		ASTInternal.addDeclaration(binding, name);
 		    	} else {
 		    		binding = new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDECLARATION);
@@ -677,24 +701,6 @@ public class CPPVisitor extends ASTQueries {
 		} 
 
 		return binding;
-	}
-
-	private static IType isCompatibleArray(IType t1, IType t2) {
-		if (t1 instanceof IArrayType && t2 instanceof IArrayType) {
-			IArrayType a1 = (IArrayType) t1;
-			IArrayType a2 = (IArrayType) t2;
-			if (!isSameType(a1.getType(), a2.getType())) {
-				return null;
-			}
-			if (a1.getSize() == null) {
-				if (a2.getSize() != null) {
-					return a2;
-				}
-			} else if (a2.getSize() == null) {
-				return a1;
-			}
-		}
-		return null;
 	}
 
 	public static boolean isConstructor(IScope containingScope, IASTDeclarator declarator) {
@@ -2090,24 +2096,6 @@ public class CPPVisitor extends ASTQueries {
 				if (dtors.length == 1 && findTypeRelevantDeclarator(dtors[0]) instanceof IASTFunctionDeclarator) {
 					return true;
 				}
-			}
-		}
-		return false;
-	}
-
-	public static boolean doesNotSpecifyType(IASTDeclSpecifier declspec) {
-		if (declspec instanceof ICPPASTSimpleDeclSpecifier) {
-			ICPPASTSimpleDeclSpecifier ds= (ICPPASTSimpleDeclSpecifier) declspec;
-			if (ds.getType() == IASTSimpleDeclSpecifier.t_unspecified) {
-				if (ds instanceof IGPPASTSimpleDeclSpecifier) {
-					final IGPPASTSimpleDeclSpecifier gds = (IGPPASTSimpleDeclSpecifier) ds;
-					if (gds.isLongLong() || gds.getTypeofExpression() != null)
-						return false;
-				}
-				if (ds.isShort() || ds.isLong() || ds.isSigned() || ds.isUnsigned())
-					return false;
-
-				return true;
 			}
 		}
 		return false;

@@ -34,7 +34,7 @@ public final class Messages extends NLS {
 	public static String ExtractFunctionComposite_ReturnValue;
 	public static String ExtractFunctionRefactoring_CreateMethodDef;
 	public static String ExtractFunctionRefactoring_CreateFunctionDef;
-	public static String ExtractFunctionComposite_ReplaceDuplicates;
+//	public static String ExtractFunctionComposite_ReplaceDuplicates;
 	public static String ExtractFunctionRefactoring_CreateMethodCall;
 	public static String ExtractFunctionRefactoring_CreateFunctionCall;
 	public static String ChooserComposite_Return;
@@ -46,7 +46,6 @@ public final class Messages extends NLS {
 	public static String ExtractFunctionRefactoring_Error_Return;
 	public static String ExtractFunctionRefactoring_Error_Continue;
 	public static String ExtractFunctionRefactoring_Error_Break;
-	public static String SimilarFinderVisitor_replaceDuplicateCode;
 
 	static {
 		NLS.initializeMessages(BUNDLE_NAME, Messages.class);

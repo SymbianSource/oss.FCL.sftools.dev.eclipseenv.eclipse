@@ -10,9 +10,7 @@
  *******************************************************************************/
 package org.eclipse.cdt.dsf.mi.service.command.commands;
 
-import org.eclipse.cdt.dsf.datamodel.DMContexts;
 import org.eclipse.cdt.dsf.datamodel.IDMContext;
-import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionDMContext;
 import org.eclipse.cdt.dsf.debug.service.command.ICommand;
 import org.eclipse.cdt.dsf.debug.service.command.ICommandResult;
 
@@ -54,13 +52,7 @@ public class ExprMetaCommand<V extends ICommandResult> implements ICommand<V> {
     
     @Override
     public String toString() {
-    	IExpressionDMContext exprDmc = DMContexts.getAncestorOfType(fCtx, IExpressionDMContext.class);
-    	if (exprDmc != null) {
-    		return getClass().getSimpleName() + "(\"" + //$NON-NLS-1$
-    				exprDmc.getExpression() + "\")"; //$NON-NLS-1$
-    	} else {
-    		return getClass().getName() + (fCtx == null ? "null" : fCtx.toString()); //$NON-NLS-1$
-    	}
+        return getClass().getName() + (fCtx == null ? "null" : fCtx.toString()); //$NON-NLS-1$
     }
     
     public String getCommandControlFilter() {

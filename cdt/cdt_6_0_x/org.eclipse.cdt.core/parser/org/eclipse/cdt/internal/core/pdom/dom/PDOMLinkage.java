@@ -175,14 +175,8 @@ public abstract class PDOMLinkage extends PDOMNamedNode implements IIndexLinkage
 		return null;
 	}
 
-	public final PDOMNode getNode(long record) throws CoreException {
-		if (record == 0) {
-			return null;
-		}
-		final int nodeType= PDOMNode.getNodeType(fDatabase, record);
-		switch (nodeType) {
-		case LINKAGE:
-			return null;
+	public PDOMNode getNode(long record) throws CoreException {
+		switch (PDOMNode.getNodeType(fDatabase, record)) {
 		case POINTER_TYPE:
 			return new PDOMPointerType(this, record);
 		case ARRAY_TYPE:
@@ -190,10 +184,8 @@ public abstract class PDOMLinkage extends PDOMNamedNode implements IIndexLinkage
 		case QUALIFIER_TYPE:
 			return new PDOMQualifierType(this, record);
 		}
-		return getNode(record, nodeType);
+		return null;
 	}
-
-	abstract public PDOMNode getNode(long record, int nodeType) throws CoreException;
 
 	public PDOMNode addType(PDOMNode parent, IType type) throws CoreException {
 		if (type instanceof IPointerType)

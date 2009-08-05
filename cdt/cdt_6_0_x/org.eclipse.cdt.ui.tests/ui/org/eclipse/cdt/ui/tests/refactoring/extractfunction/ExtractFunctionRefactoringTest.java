@@ -40,7 +40,6 @@ public class ExtractFunctionRefactoringTest extends RefactoringTest {
 	protected int returnParameterIndex;
 	protected boolean fatalError;
 	private VisibilityEnum visibility;
-	private static int nr = 1;
 
 	/**
 	 * @param name
@@ -63,28 +62,18 @@ public class ExtractFunctionRefactoringTest extends RefactoringTest {
 		}
 		else{
 			assertConditionsOk(checkInitialConditions);
-			setValues(info);
-			executeRefactoring(refactoring);
+			executeRefactoring(info, refactoring);
 		}
 		
 		
 	}
 
-	protected void executeRefactoring(CRefactoring refactoring) throws CoreException, Exception {
-		RefactoringStatus finalConditions = refactoring.checkFinalConditions(NULL_PROGRESS_MONITOR);
-		assertConditionsOk(finalConditions);
-		Change createChange = refactoring.createChange(NULL_PROGRESS_MONITOR);
-		createChange.perform(NULL_PROGRESS_MONITOR);
-		compareFiles(fileMap);
-	}
-
-	private void setValues(ExtractFunctionInformation info) {
+	private void executeRefactoring(ExtractFunctionInformation info, CRefactoring refactoring) throws CoreException, Exception {
 		info.setMethodName(methodName);
 		info.setReplaceDuplicates(replaceDuplicates);
 		if(info.getInScopeDeclaredVariable() == null){
 			if(returnValue) {
 				info.setReturnVariable(info.getAllAfterUsedNames().get(returnParameterIndex));
-				info.getAllAfterUsedNames().get(returnParameterIndex).setUserSetIsReference(false);
 			}
 		} else {
 			info.setReturnVariable( info.getInScopeDeclaredVariable() );
@@ -96,6 +85,13 @@ public class ExtractFunctionRefactoringTest extends RefactoringTest {
 				name.setUserSetIsReference(name.isReference());
 			}
 		}
+		
+		Change createChange = refactoring.createChange(NULL_PROGRESS_MONITOR);
+		RefactoringStatus finalConditions = refactoring.checkFinalConditions(NULL_PROGRESS_MONITOR);
+		assertConditionsOk(finalConditions);
+		createChange.perform(NULL_PROGRESS_MONITOR);
+		
+		compareFiles(fileMap);
 	}
 
 	

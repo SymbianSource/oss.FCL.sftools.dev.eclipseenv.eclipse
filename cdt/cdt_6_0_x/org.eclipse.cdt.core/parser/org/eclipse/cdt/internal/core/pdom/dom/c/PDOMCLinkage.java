@@ -296,8 +296,11 @@ class PDOMCLinkage extends PDOMLinkage implements IIndexCBindingConstants {
 	}
 
 	@Override
-	public PDOMNode getNode(long record, int nodeType) throws CoreException {
-		switch (nodeType) {
+	public PDOMNode getNode(long record) throws CoreException {
+		if (record == 0)
+			return null;
+
+		switch (PDOMNode.getNodeType(getDB(), record)) {
 		case CVARIABLE:
 			return new PDOMCVariable(this, record);
 		case CFUNCTION:
@@ -320,8 +323,7 @@ class PDOMCLinkage extends PDOMLinkage implements IIndexCBindingConstants {
 			return new PDOMCFunctionType(this, record);
 		}
 
-		assert false;
-		return null;
+		return super.getNode(record);
 	}
 
 	@Override

@@ -93,18 +93,6 @@ public final class CLibraryFileEntry extends ACPathEntry implements
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = super.hashCode();
-		result = prime * result + ((fSourceAttachmentPath == null) ? 0 : fSourceAttachmentPath.hashCode());
-		result = prime * result
-				+ ((fSourceAttachmentPrefixMapping == null) ? 0 : fSourceAttachmentPrefixMapping.hashCode());
-		result = prime * result
-				+ ((fSourceAttachmentRootPath == null) ? 0 : fSourceAttachmentRootPath.hashCode());
-		return result;
-	}
-
-	@Override
 	public boolean equals(Object other) {
 		if(other == this)
 			return true;

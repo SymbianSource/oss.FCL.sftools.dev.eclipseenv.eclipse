@@ -15,6 +15,7 @@ package org.eclipse.cdt.ui.newui;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -86,6 +87,7 @@ import org.eclipse.cdt.core.settings.model.ICFolderDescription;
 import org.eclipse.cdt.core.settings.model.ICMultiItemsHolder;
 import org.eclipse.cdt.core.settings.model.ICProjectDescription;
 import org.eclipse.cdt.core.settings.model.ICResourceDescription;
+import org.eclipse.cdt.core.settings.model.ICSettingEntry;
 import org.eclipse.cdt.core.settings.model.MultiItemsHolder;
 import org.eclipse.cdt.ui.CUIPlugin;
 import org.eclipse.cdt.ui.PreferenceConstants;
@@ -406,7 +408,7 @@ implements
 				boolean enterMultiCfgsDialog = (multiCfgs == null)
 						|| (multiCfgs == cfgDescs) || !areCfgsStillThere(multiCfgs);
 				if (enterMultiCfgsDialog) {
-					ICConfigurationDescription[] mcfgs = ConfigMultiSelectionDialog.select(cfgDescs, parentComposite.getShell());
+					ICConfigurationDescription[] mcfgs = ConfigMultiSelectionDialog.select(cfgDescs);
 					if (mcfgs == null || mcfgs.length == 0) {
 						// return back to previous selection
 						int cfgIndex = -1;
@@ -676,8 +678,36 @@ implements
 			InternalTab tab = it.next();
 			if (tab != null) {
 				ICPropertyTab tabtab = tab.tab;
-				if (tabtab instanceof AbstractCPropertyTab && ((AbstractCPropertyTab)tabtab).isIndexerAffected()) {
-					return true;
+				if (tabtab instanceof AbstractLangsListTab) {
+					final AbstractLangsListTab langListTab = (AbstractLangsListTab) tabtab;
+					switch(langListTab.getKind()) {
+					case ICSettingEntry.INCLUDE_PATH:
+					case ICSettingEntry.MACRO:
+					case ICSettingEntry.INCLUDE_FILE:
+					case ICSettingEntry.MACRO_FILE:
+						if (langListTab.hadSomeModification()) {
+							return true;
+						}
+						break;
+					}
+				} else if (tabtab instanceof AbstractCPropertyTab){
+					// attempt to access API that will be introduced in CDT 6.1 (bug 144085)
+					try {
+						Class<?> clazz= tabtab.getClass();
+						Method meth = clazz.getDeclaredMethod("isIndexerAffected"); //$NON-NLS-1$
+						if (meth != null) {
+							Object result = meth.invoke(tabtab);
+							if (result instanceof Boolean && ((Boolean) result).booleanValue())
+								return true;
+						}
+					} catch (SecurityException e) {
+					} catch (NoSuchMethodException e) {
+					} catch (IllegalArgumentException e) {
+					} catch (IllegalAccessException e) {
+					} catch (InvocationTargetException e) {
+						// the method was called and has thrown an exception.
+						CUIPlugin.log(e);
+					}
 				}
 			}
 		}

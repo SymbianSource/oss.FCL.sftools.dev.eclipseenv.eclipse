@@ -12,9 +12,7 @@
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
-import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.CVQ;
-import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.REF;
-import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.TDEF;
+import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.*;
 
 import org.eclipse.cdt.core.dom.ast.ASTVisitor;
 import org.eclipse.cdt.core.dom.ast.DOMException;
@@ -232,13 +230,17 @@ public class CPPASTUnaryExpression extends ASTNode implements ICPPASTUnaryExpres
 	    	if (type instanceof IProblemBinding) {
 	    		return type;
 	    	}
-		    IType operator = findOperatorReturnType();
-			if(operator != null) {
-				return operator;
-			} else if (type instanceof IPointerType || type instanceof IArrayType) {
-				return ((ITypeContainer) type).getType();
-			} else if (type instanceof ICPPUnknownType) {
-				return CPPUnknownClass.createUnnamedInstance();
+		    try {
+		    	IType operator = findOperatorReturnType();
+				if(operator != null) {
+					return operator;
+				} else if (type instanceof IPointerType || type instanceof IArrayType) {
+					return ((ITypeContainer) type).getType();
+				} else if (type instanceof ICPPUnknownType) {
+					return CPPUnknownClass.createUnnamedInstance();
+				}
+			} catch (DOMException e) {
+				return e.getProblem();
 			}
 			return new ProblemBinding(this, IProblemBinding.SEMANTIC_INVALID_TYPE, this.getRawSignature().toCharArray());
 		} 

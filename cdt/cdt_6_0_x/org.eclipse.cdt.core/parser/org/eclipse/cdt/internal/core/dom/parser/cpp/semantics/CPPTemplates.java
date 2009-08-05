@@ -96,7 +96,6 @@ import org.eclipse.cdt.internal.core.dom.parser.ITypeContainer;
 import org.eclipse.cdt.internal.core.dom.parser.ProblemBinding;
 import org.eclipse.cdt.internal.core.dom.parser.Value;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPASTName;
-import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPArrayType;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPBasicType;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPClassInstance;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPClassSpecialization;
@@ -843,11 +842,11 @@ public class CPPTemplates {
 			}		
 
 			if (type instanceof ITypeContainer) {
-				final ITypeContainer typeContainer = (ITypeContainer) type;
-				IType nestedType = typeContainer.getType();
+				final ITypeContainer tc = (ITypeContainer) type;
+				IType nestedType = tc.getType();
 				IType newNestedType = instantiateType(nestedType, tpMap, within);
-				if (typeContainer instanceof ICPPPointerToMemberType) {
-					ICPPPointerToMemberType ptm = (ICPPPointerToMemberType) typeContainer;
+				if (type instanceof ICPPPointerToMemberType) {
+					ICPPPointerToMemberType ptm = (ICPPPointerToMemberType) type;
 					IType memberOfClass = ptm.getMemberOfClass();
 					IType newMemberOfClass = instantiateType(memberOfClass, tpMap, within);
 					if (newNestedType != nestedType || newMemberOfClass != memberOfClass) {
@@ -855,22 +854,13 @@ public class CPPTemplates {
 							return new CPPPointerToMemberType(newNestedType, newMemberOfClass,
 								ptm.isConst(), ptm.isVolatile());
 						}
-						return typeContainer;
-					}
-				} else if (typeContainer instanceof IArrayType) {
-					IArrayType at= (IArrayType) typeContainer;
-					IValue asize= at.getSize();
-					if (asize != null) {
-						IValue newSize= instantiateValue(asize, tpMap, within, Value.MAX_RECURSION_DEPTH);
-						if (newSize != asize) {
-							return new CPPArrayType(newNestedType, newSize);
-						}
+						return type;
 					}
 				}
 				if (newNestedType != nestedType) {
-					return SemanticUtil.replaceNestedType(typeContainer, newNestedType);
+					return SemanticUtil.replaceNestedType(tc, newNestedType);
 				} 
-				return typeContainer;
+				return type;
 			} 
 
 			return type;
@@ -1010,7 +1000,7 @@ public class CPPTemplates {
 	}
 	
 	public static void associateTemplateDeclarations(ICPPASTInternalTemplateDeclaration tdecl) {
-		// find innermost template declaration
+		// find innermost template decl
 		IASTDeclaration decl= tdecl.getDeclaration();
 		while (decl instanceof ICPPASTInternalTemplateDeclaration) {
 			tdecl= (ICPPASTInternalTemplateDeclaration) decl;
@@ -1018,7 +1008,7 @@ public class CPPTemplates {
 		}
 		final ICPPASTInternalTemplateDeclaration innerMostTDecl= tdecl;
 		
-		// find name declared within the template declaration
+		// find name declared in nested declaration
 		IASTName name= getNameForDeclarationInTemplateDeclaration(decl);
 
 		// count template declarations
@@ -1033,7 +1023,7 @@ public class CPPTemplates {
 
 		// determine association of names with template declarations
 		boolean lastIsTemplate= true;
-		int missingTemplateDecls= 0;
+		int additionalLevels= 0;
 		if (name instanceof ICPPASTQualifiedName) {
 			ICPPASTQualifiedName qname= (ICPPASTQualifiedName) name;
 			final IASTName lastName = qname.getLastName();
@@ -1042,7 +1032,8 @@ public class CPPTemplates {
 			// count template-ids
 			int idcount= 0;
 			final IASTName[] ns= qname.getNames();
-			for (final IASTName n : ns) {
+			for (int j = 0; j < ns.length; j++) {
+				final IASTName n = ns[j];
 				if (n instanceof ICPPASTTemplateId) {
 					idcount++;
 				}
@@ -1062,23 +1053,25 @@ public class CPPTemplates {
 			}
 			
 			if (lastIsID && !isCtorWithTemplateID) {
-				missingTemplateDecls= idcount-tdeclcount;
+				additionalLevels= idcount-tdeclcount;
 			} else {
-				missingTemplateDecls= idcount+1-tdeclcount;
-				if (missingTemplateDecls > 0) {
+				additionalLevels= idcount+1-tdeclcount;
+				if (additionalLevels > 0) {
 					// last name is probably not a template
-					missingTemplateDecls--;
+					additionalLevels--;
 					lastIsTemplate= false;
 					CharArraySet tparnames= collectTemplateParameterNames(outerMostTDecl);
 					int j= 0;
-					for (IASTName n : ns) {
+					IASTName n;
+					for (int i = 0; i < ns.length; i++) {
+						n = ns[j];
 						if (n instanceof ICPPASTTemplateId) {
 							// if we find a dependent id, there can be no explicit specialization.
 							ICPPASTTemplateId id= (ICPPASTTemplateId) n;
 							if (usesTemplateParameter(id, tparnames))
 								break;
 
-							if (j++ == missingTemplateDecls) {
+							if (j++ == additionalLevels) {
 								IBinding b= n.resolveBinding();
 								if (b instanceof ICPPTemplateInstance && b instanceof ICPPClassType) {
 									try {
@@ -1086,7 +1079,7 @@ public class CPPTemplates {
 										if (!(s instanceof ICPPClassSpecializationScope)) {
 											// template-id of an explicit specialization. 
 											// here we don't have a template declaration. (see 14.7.3.5)
-											missingTemplateDecls++;
+											additionalLevels++;
 											lastIsTemplate= true;
 										}
 									} catch (DOMException e) {
@@ -1101,12 +1094,12 @@ public class CPPTemplates {
 			}
 		}
 		
-		if (missingTemplateDecls < 0) {
-			missingTemplateDecls= 0; // too many template declarations
+		if (additionalLevels < 0) {
+			additionalLevels= 0; // too many template declarations
 		}
 		
 		// determine nesting level of parent
-		int level= missingTemplateDecls;
+		int level= additionalLevels;
 		if (!CPPVisitor.isFriendFunctionDeclaration(innerMostTDecl.getDeclaration())) {
 			node= outerMostTDecl.getParent();
 			while (node != null) {
@@ -1565,16 +1558,23 @@ public class CPPTemplates {
 	static private IType getArgumentTypeForDeduction(IType type, boolean parameterIsAReferenceType) {
 		type = SemanticUtil.getSimplifiedType(type);
 		if (type instanceof ICPPReferenceType) {
-		    type = ((ICPPReferenceType) type).getType();
+		    try {
+                type = ((ICPPReferenceType) type).getType();
+            } catch (DOMException e) {
+            }
 		}
 		IType result = type;
 		if (!parameterIsAReferenceType) {
-			if (type instanceof IArrayType) {
-				result = new CPPPointerType(((IArrayType) type).getType());
-			} else if (type instanceof IFunctionType) {
-				result = new CPPPointerType(type);
-			} else {
-				result = SemanticUtil.getNestedType(type, SemanticUtil.TDEF | SemanticUtil.CVQ | SemanticUtil.PTR_CVQ );
+			try {
+				if (type instanceof IArrayType) {
+					result = new CPPPointerType(((IArrayType) type).getType());
+				} else if (type instanceof IFunctionType) {
+					result = new CPPPointerType(type);
+				} else {
+					result = SemanticUtil.getNestedType(type, SemanticUtil.TDEF | SemanticUtil.CVQ | SemanticUtil.PTR_CVQ );
+				} 
+			} catch (DOMException e) {
+				result = e.getProblem();
 			}
 		}
 		return result;
@@ -1607,32 +1607,6 @@ public class CPPTemplates {
 				}
 				p = ((ICPPReferenceType) p).getType();
 				a = ((ICPPReferenceType) a).getType();
-			} else if (p instanceof IArrayType) {
-				if (!(a instanceof IArrayType)) {
-					return false;
-				}
-				IArrayType aa= (IArrayType) a;
-				IArrayType pa= (IArrayType) p;
-				IValue as= aa.getSize();
-				IValue ps= pa.getSize();
-				if (as != ps) {
-					if (as == null || ps == null)
-						return false;
-					
-					int parPos= Value.isTemplateParameter(ps);
-					if (parPos >= 0) { 
-						ICPPTemplateArgument old= map.getArgument(parPos);
-						if (old == null) {
-							map.put(parPos, new CPPTemplateArgument(ps, new CPPBasicType(IBasicType.t_int, 0)));
-						} else if (!ps.equals(old.getNonTypeValue())) {
-							return false;
-						}
-					} else if (!ps.equals(as)) {
-						return false;
-					}
-				}
-				p = pa.getType();
-				a = aa.getType();
 			} else if (p instanceof IQualifierType) {
 				if (a instanceof IQualifierType) {
 					a = ((IQualifierType) a).getType(); //TODO a = strip qualifiers from p out of a
@@ -1953,7 +1927,7 @@ public class CPPTemplates {
 			if (!(paramType instanceof IType))
 				return null;
 
-			IParameter[] functionParameters = new IParameter[] { new CPPParameter((IType) paramType, 0) };
+			IParameter[] functionParameters = new IParameter[] { new CPPParameter((IType) paramType) };
 
 			return new CPPImplicitFunctionTemplate(specialization.getTemplateParameters(), functionParameters);
 		} catch (DOMException e) {
@@ -1962,8 +1936,12 @@ public class CPPTemplates {
 	}
 
 	static private boolean isValidType(IType t) {
-		while (t instanceof ITypeContainer) {
-			t = ((ITypeContainer) t).getType();
+		try {
+			while (t instanceof ITypeContainer) {
+				t = ((ITypeContainer) t).getType();
+			}
+		} catch (DOMException e) {
+			return false;
 		}
 		return !(t instanceof IProblemBinding);
 	}
@@ -2054,7 +2032,11 @@ public class CPPTemplates {
 		if (paramType instanceof IFunctionType) {
 			paramType = new CPPPointerType(paramType);
 	    } else if (paramType instanceof IArrayType) {
-	    	paramType = new CPPPointerType(((IArrayType) paramType).getType());
+	    	try {
+	    		paramType = new CPPPointerType(((IArrayType) paramType).getType());
+			} catch (DOMException e) {
+				paramType = e.getProblem();
+			}
 		}
 		Cost cost = Conversions.checkStandardConversionSequence(arg, paramType, false);
 		return cost != null && cost.getRank() != Rank.NO_MATCH;
@@ -2108,30 +2090,30 @@ public class CPPTemplates {
 	}
 	
 	public static boolean isDependentType(IType t) {
-		while (true) {
-			if (t instanceof ICPPUnknownType)
-				return true;
-			
-			if (t instanceof ICPPFunctionType) {
-				final ICPPFunctionType ft = (ICPPFunctionType) t;
-				if (containsDependentType(ft.getParameterTypes()))
+		try {
+			while (true) {
+				if (t instanceof ICPPUnknownType)
 					return true;
-				t= ft.getReturnType();
-			} else if (t instanceof ICPPPointerToMemberType) {
-				ICPPPointerToMemberType ptmt= (ICPPPointerToMemberType) t;
-				if (isDependentType(ptmt.getMemberOfClass()))
-					return true;
-				t= ptmt.getType();
-			} else if (t instanceof ITypeContainer) {
-				if (t instanceof IArrayType) {
-					IValue asize= ((IArrayType) t).getSize();
-					if (asize != null && Value.isDependentValue(asize))
+				
+				if (t instanceof ICPPFunctionType) {
+					final ICPPFunctionType ft = (ICPPFunctionType) t;
+					if (containsDependentType(ft.getParameterTypes()))
 						return true;
+					t= ft.getReturnType();
+				} else if (t instanceof ICPPPointerToMemberType) {
+					ICPPPointerToMemberType ptmt= (ICPPPointerToMemberType) t;
+					if (isDependentType(ptmt.getMemberOfClass()))
+						return true;
+					t= ptmt.getType();
+				} else if (t instanceof ITypeContainer) {
+					t= ((ITypeContainer) t).getType();
+				} else {
+					return false;
 				}
-				t= ((ITypeContainer) t).getType();
-			} else {
-				return false;
 			}
+		} catch (DOMException e) {
+			// treat as non-dependent
+			return false;
 		}
 	}
 	

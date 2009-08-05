@@ -255,13 +255,14 @@ public class BasicSearchTest extends BaseUITestCase {
 				Object node = nodeElements[0];
 				if (!(node instanceof IStatus))
 					node = nodeElements[1];
-				if (node instanceof IStatus) {
+				if (node instanceof IStatus)
+				{
 					IStatus firstRootNode = (IStatus) node;				
 					assertEquals(IStatus.WARNING, firstRootNode.getSeverity());
 					// can't really verify text in case message is localized...
-				} else {
-					fail("can't get status");
 				}
+				else
+					fail("can't get status");
 			}
 		} else {
 			// must NOT have the IStatus

@@ -65,10 +65,14 @@ public class CPPTypedef extends PlatformObject implements ITypedef, ITypeContain
         if (o == this)
             return true;
 	    if (o instanceof ITypedef) {
-            IType t = getType();
-			if (t != null)
-			    return t.isSameType(((ITypedef)o).getType());
-			return false;
+            try {
+                IType t = getType();
+                if (t != null)
+                    return t.isSameType(((ITypedef)o).getType());
+                return false;
+            } catch (DOMException e) {
+                return false;
+            }
 	    }
 
 	    IType t = getType();

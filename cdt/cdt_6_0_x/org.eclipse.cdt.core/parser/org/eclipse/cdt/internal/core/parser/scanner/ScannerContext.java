@@ -44,7 +44,6 @@ final class ScannerContext {
 	private Token fTokens;
 	private ArrayList<Conditional> fConditionals= null;
 	private CodeState fCurrentState= CodeState.eActive;
-	private IncludeSearchPathElement fFoundOnPath;
 
 	/**
 	 * @param ctx 
@@ -57,7 +56,9 @@ final class ScannerContext {
 	}
 	
 	public ScannerContext(ILocationCtx ctx, ScannerContext parent, TokenList tokens) {
-		this (ctx, parent, (Lexer) null);
+		fLocationCtx= ctx;
+		fParent= parent;
+		fLexer= null;
 		fTokens= tokens.first();
 		fInactiveState= CodeState.eSkipInactive;  // no branches in result of macro expansion
 	}
@@ -268,19 +269,5 @@ final class ScannerContext {
 		if (fConditionals == null)
 			return 0;
 		return fConditionals.size();
-	}
-
-	/**
-	 * Returns the element of the include search path that was used to find this context, or <code>null</code> if not applicable.
-	 */
-	public IncludeSearchPathElement getFoundOnPath() {
-		return fFoundOnPath;
-	}
-
-	/**
-	 * Returns the element of the include search path that was used to find this context, or <code>null</code> if not applicable.
-	 */
-	public void setFoundOnPath(IncludeSearchPathElement foundOnPath) {
-		fFoundOnPath= foundOnPath;
 	}
 }

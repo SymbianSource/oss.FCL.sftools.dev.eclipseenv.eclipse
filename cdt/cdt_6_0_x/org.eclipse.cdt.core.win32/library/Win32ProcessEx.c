@@ -39,11 +39,10 @@ typedef struct _procInfo {
 	int uid; // quasi-unique process ID; we have to create it to avoid duplicated pid 
 	         // (actually this impossible from OS point of view but it is still possible
 			 // a clash of new created and already finished process with one and the same PID.
-	// 4 events connected to this process (see starter)
-	HANDLE eventBreak;			// signaled when Spawner.interrupt() is called; mildest of the terminate requests (SIGINT signal in UNIX world)
+	// 3 events connected to this process (see starter)
+	HANDLE eventBreak;
 	HANDLE eventWait;
-	HANDLE eventTerminate;		// signaled when Spawner.terminate() is called; more forceful terminate request (SIGTERM signal in UNIX world)
-	HANDLE eventKill;			// signaled when Spawner.kill() is called; most forceful terminate request (SIGKILL signal in UNIX world)
+	HANDLE eventTerminate;
 } procInfo_t, * pProcInfo_t;
 
 static int procCounter = 0; // Number of running processes
@@ -147,7 +146,6 @@ JNIEXPORT jint JNICALL Java_org_eclipse_cdt_utils_spawner_Spawner_exec0
 	wchar_t eventBreakName[20];
 	wchar_t eventWaitName[20];
 	wchar_t eventTerminateName[20];
-	wchar_t eventKillName[20];
 #ifdef DEBUG_MONITOR
 	wchar_t buffer[1000];
 #endif
@@ -219,14 +217,14 @@ JNIEXPORT jint JNICALL Java_org_eclipse_cdt_utils_spawner_Spawner_exec0
 	swprintf(eventBreakName, L"SABreak%p", pCurProcInfo);
 	swprintf(eventWaitName, L"SAWait%p", pCurProcInfo);
 	swprintf(eventTerminateName, L"SATerm%p", pCurProcInfo);
-	swprintf(eventKillName, L"SAKill%p", pCurProcInfo);
+	pCurProcInfo -> eventBreak = CreateEventW(NULL, TRUE, FALSE, eventBreakName);
+	ResetEvent(pCurProcInfo -> eventBreak);   
+	pCurProcInfo -> eventWait = CreateEventW(NULL, TRUE, FALSE, eventWaitName);
+	ResetEvent(pCurProcInfo -> eventWait);   
+	pCurProcInfo -> eventTerminate = CreateEventW(NULL, TRUE, FALSE, eventTerminateName);
+	ResetEvent(pCurProcInfo -> eventTerminate);   
 
-	pCurProcInfo->eventBreak     = CreateEventW(NULL, FALSE, FALSE, eventBreakName);
-	pCurProcInfo->eventWait      = CreateEventW(NULL, TRUE,  FALSE, eventWaitName);
-	pCurProcInfo->eventTerminate = CreateEventW(NULL, FALSE, FALSE, eventTerminateName);
-	pCurProcInfo->eventKill      = CreateEventW(NULL, FALSE, FALSE, eventKillName);
-
-	swprintf(szCmdLine, L"\"%sstarter.exe\" %i %i %s %s %s %s ", path, pid, nLocalCounter, eventBreakName, eventWaitName, eventTerminateName, eventKillName);
+	swprintf(szCmdLine, L"\"%sstarter.exe\" %i %i %s %s %s ", path, pid, nLocalCounter, eventBreakName, eventWaitName, eventTerminateName);
 	nPos = wcslen(szCmdLine);
 
 	// Prepare command line
@@ -669,26 +667,14 @@ JNIEXPORT jint JNICALL Java_org_eclipse_cdt_utils_spawner_Spawner_raise
 			// Temporary do nothing
 			ret = 0;
 			break;
+		case SIG_KILL:
 		case SIG_TERM:
 #ifdef DEBUG_MONITOR
-			swprintf(buffer, _T("Spawner received TERM signal for process %i\n"),
+			swprintf(buffer, _T("Spawner received KILL or TERM signal for process %i\n"), 
 				pCurProcInfo -> pid);
 			OutputDebugStringW(buffer);
 #endif
 		    SetEvent(pCurProcInfo -> eventTerminate);
-#ifdef DEBUG_MONITOR
-			OutputDebugStringW(_T("Spawner signalled TERM event\n"));
-#endif
-			ret = 0;
-			break;
-
-		case SIG_KILL:
-#ifdef DEBUG_MONITOR
-			swprintf(buffer, _T("Spawner received KILL signal for process %i\n"),
-				pCurProcInfo -> pid);
-			OutputDebugStringW(buffer);
-#endif
-		    SetEvent(pCurProcInfo -> eventKill);
 #ifdef DEBUG_MONITOR
 			OutputDebugStringW(_T("Spawner signalled KILL event\n"));
 #endif
@@ -696,7 +682,7 @@ JNIEXPORT jint JNICALL Java_org_eclipse_cdt_utils_spawner_Spawner_raise
 			break;
 		case SIG_INT:
 		    ResetEvent(pCurProcInfo -> eventWait);
-			SetEvent(pCurProcInfo -> eventBreak);
+			PulseEvent(pCurProcInfo -> eventBreak);
 			ret = (WaitForSingleObject(pCurProcInfo -> eventWait, 100) == WAIT_OBJECT_0);
 			break;
 		default:
@@ -853,12 +839,6 @@ void cleanUpProcBlock(pProcInfo_t pCurProcInfo)
 		{
 		CloseHandle(pCurProcInfo -> eventTerminate);
 		pCurProcInfo -> eventTerminate = 0;
-		}
-
-	if(0 != pCurProcInfo -> eventKill)
-		{
-		CloseHandle(pCurProcInfo -> eventKill);
-		pCurProcInfo -> eventKill = 0;
 		}
 
 	pCurProcInfo -> pid = 0;
