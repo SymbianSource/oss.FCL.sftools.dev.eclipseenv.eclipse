@@ -268,36 +268,48 @@ public class ExecutablesView extends ViewPart {
 		// update the source files viewer
 		executablesViewer.addSelectionChangedListener(new ISelectionChangedListener() {
 
-			public void selectionChanged(SelectionChangedEvent event) {
-				ISelection newSelection = event.getSelection();
-				if (newSelection instanceof IStructuredSelection) {
-					final Object firstElement = ((IStructuredSelection) newSelection).getFirstElement();
-					
-					Job setectExeJob = new Job(Messages.ExecutablesView_Select_Executable) {
+					public void selectionChanged(SelectionChangedEvent event) {
+						ISelection newSelection = event.getSelection();
+						if (newSelection instanceof IStructuredSelection) {
 
-						@Override
-						protected IStatus run(IProgressMonitor monitor) {
-							if (firstElement instanceof Executable) {
-								Executable executable = (Executable)firstElement;
-								this.setName(Messages.ExecutablesView_Finding_Sources_Job_Name + executable.getName());
-								executable.getSourceFiles(monitor);
-							}
-							UIJob selectExeUIJob = new UIJob(Messages.ExecutablesView_Select_Executable){
+							// update the remove action
+							removeAction.setEnabled(!newSelection.isEmpty());
+
+							final Object firstElement = ((IStructuredSelection) newSelection)
+									.getFirstElement();
+
+							Job setectExeJob = new Job(
+									Messages.ExecutablesView_Select_Executable) {
+
 								@Override
-								public IStatus runInUIThread(IProgressMonitor monitor) {
-									sourceFilesViewer.setInput(firstElement);
+								protected IStatus run(IProgressMonitor monitor) {
 									if (firstElement instanceof Executable) {
-										sourceFilesViewer.packColumns();
+										Executable executable = (Executable) firstElement;
+										this
+												.setName(Messages.ExecutablesView_Finding_Sources_Job_Name
+														+ executable.getName());
+										executable.getSourceFiles(monitor);
+										UIJob selectExeUIJob = new UIJob(
+												Messages.ExecutablesView_Select_Executable) {
+											@Override
+											public IStatus runInUIThread(
+													IProgressMonitor monitor) {
+												sourceFilesViewer
+														.setInput(firstElement);
+												sourceFilesViewer.packColumns();
+												return Status.OK_STATUS;
+											}
+										};
+										selectExeUIJob.schedule();
 									}
+
 									return Status.OK_STATUS;
-								}};
-								selectExeUIJob.schedule();								
-								return Status.OK_STATUS;
-						}};
-						setectExeJob.schedule();
-				}
-			}
-		});
+								}
+							};
+							setectExeJob.schedule();
+						}
+					}
+				});
 
 		executablesViewer.packColumns();
 		sourceFilesViewer.packColumns();
@@ -360,6 +372,7 @@ public class ExecutablesView extends ViewPart {
 
 	private Action createRemoveAction() {
 		Action action = new Action("Remove") {
+			
 			public void run() {				
 				ISelection selection = getExecutablesViewer().getSelection();
 				if (selection instanceof IStructuredSelection)
@@ -404,7 +417,7 @@ public class ExecutablesView extends ViewPart {
 		action.setToolTipText("Remove the selected executables");
 		action.setImageDescriptor(ExecutablesView.DESC_REMOVE);
 		action.setDisabledImageDescriptor(ExecutablesView.DESC_REMOVE_DISABLED);
-		action.setEnabled(true);
+		action.setEnabled(false);
 		return action;
 	}
 
@@ -460,7 +473,7 @@ public class ExecutablesView extends ViewPart {
 	private Action createRefreshAction() {
 		Action action = new Action(Messages.ExecutablesView_Refresh) {
 			public void run() {
-				ExecutablesManager.getExecutablesManager().scheduleRefresh(null, 0);
+				ExecutablesManager.getExecutablesManager().refresh(null);
 			}
 		};
 		action.setToolTipText(Messages.ExecutablesView_RefreshList);

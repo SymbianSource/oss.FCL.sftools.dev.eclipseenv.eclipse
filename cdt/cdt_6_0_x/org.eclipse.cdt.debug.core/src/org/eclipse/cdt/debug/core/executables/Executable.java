@@ -135,7 +135,7 @@ public class Executable extends PlatformObject {
 	 * @noreference This method is not intended to be referenced by clients.
 	 * @since 6.0
 	 */
-	public TranslationUnit[] getSourceFiles(IProgressMonitor monitor) {
+	public synchronized TranslationUnit[] getSourceFiles(IProgressMonitor monitor) {
 		
 		if (!refreshSourceFiles)
 			return sourceFiles.toArray(new TranslationUnit[sourceFiles.size()]) ;
@@ -241,7 +241,7 @@ public class Executable extends PlatformObject {
 		this.refreshSourceFiles = refreshSourceFiles;
 	}
 
-	public String getOriginalLocation(ITranslationUnit tu) {
+	public synchronized String getOriginalLocation(ITranslationUnit tu) {
 		String orgLocation = remappedPaths.get(tu);
 		if (orgLocation == null)
 			orgLocation = tu.getLocation().toOSString();
