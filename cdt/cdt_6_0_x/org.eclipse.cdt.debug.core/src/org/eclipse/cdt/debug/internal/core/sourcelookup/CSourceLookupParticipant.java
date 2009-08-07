@@ -15,6 +15,9 @@
 package org.eclipse.cdt.debug.internal.core.sourcelookup; 
 
 import java.io.File;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.cdt.debug.core.cdi.ICDIBreakpointHit;
 import org.eclipse.cdt.debug.core.model.ICDebugTarget;
@@ -48,6 +51,8 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 	private static final NoSourceElement gfNoSource = new NoSourceElement();
 
 	private ListenerList fListeners;
+	
+	private Map<Object, Object[]> fCachedResults = Collections.synchronizedMap(new HashMap<Object, Object[]>());
 
 	/** 
 	 * Constructor for CSourceLookupParticipant. 
@@ -78,6 +83,11 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 	 * @see org.eclipse.debug.core.sourcelookup.AbstractSourceLookupParticipant#findSourceElements(java.lang.Object)
 	 */
 	@Override
+		// Check the cache
+		Object[] results = fCachedResults.get(object);
+		if (results != null)
+			return results;
+		
 	public Object[] findSourceElements( Object object ) throws CoreException {
 
 		// Workaround for BUG247977
@@ -94,9 +104,11 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 				if ( name == null || name.length() == 0 )
 				{
 					if (object instanceof IDebugElement)
-						return new Object[] { new CSourceNotFoundElement( (IDebugElement) object ) };
+						results = new Object[] { new CSourceNotFoundElement( (IDebugElement) object ) };
 					else
-						return new Object[] { gfNoSource };					
+						results = new Object[] { gfNoSource };
+					fCachedResults.put(object, results);
+					return results;
 				}
 			}
 			// See if findSourceElements(...) is the result of a Breakpoint Hit Event
@@ -112,6 +124,7 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 			name = (String)object;
 		}
 
+		fCachedResults.put(object, foundElements);
 		// Actually query the source containers for the requested resource
 		Object[] foundElements = super.findSourceElements(object);
 
