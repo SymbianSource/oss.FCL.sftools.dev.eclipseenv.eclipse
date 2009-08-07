@@ -82,14 +82,13 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 	/* (non-Javadoc)
 	 * @see org.eclipse.debug.core.sourcelookup.AbstractSourceLookupParticipant#findSourceElements(java.lang.Object)
 	 */
-	@Override
+	public Object[] findSourceElements( Object object ) throws CoreException {
+		
 		// Check the cache
 		Object[] results = fCachedResults.get(object);
 		if (results != null)
 			return results;
 		
-	public Object[] findSourceElements( Object object ) throws CoreException {
-
 		// Workaround for BUG247977
 		// FIXME: Remove having switched to 3.5 platform
 		initContainersSourceDirector();
@@ -104,9 +103,9 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 				if ( name == null || name.length() == 0 )
 				{
 					if (object instanceof IDebugElement)
-						results = new Object[] { new CSourceNotFoundElement( (IDebugElement) object ) };
+						results = new Object[] { new CSourceNotFoundElement( (IDebugElement) object ) }; 
 					else
-						results = new Object[] { gfNoSource };
+						results = new Object[] { gfNoSource }; 
 					fCachedResults.put(object, results);
 					return results;
 				}
@@ -124,10 +123,10 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 			name = (String)object;
 		}
 
-		fCachedResults.put(object, foundElements);
 		// Actually query the source containers for the requested resource
 		Object[] foundElements = super.findSourceElements(object);
-
+		fCachedResults.put(object, foundElements);
+		
 		// If none found, invoke the absolute path container directly
 		if (foundElements.length == 0 && (object instanceof IDebugElement)) {
 			// debugger could have resolved it itself and "name" is an absolute path
@@ -156,6 +155,7 @@ public class CSourceLookupParticipant extends AbstractSourceLookupParticipant {
 		// FIXME: remove when BUG247977 is fixed
 		endContainersSourceDirector();
 
+		fCachedResults.put(object, foundElements); 
 		return foundElements;
 	}
 
