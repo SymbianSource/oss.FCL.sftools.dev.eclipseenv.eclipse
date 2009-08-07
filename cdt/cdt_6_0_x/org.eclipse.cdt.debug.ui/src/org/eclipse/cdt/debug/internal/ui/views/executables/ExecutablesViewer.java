@@ -11,6 +11,7 @@
 package org.eclipse.cdt.debug.internal.ui.views.executables;
 
 import java.util.List;
+
 import org.eclipse.cdt.debug.core.executables.Executable;
 import org.eclipse.cdt.debug.core.executables.ExecutablesManager;
 import org.eclipse.cdt.debug.core.executables.IExecutablesChangeListener;
@@ -166,7 +167,6 @@ public class ExecutablesViewer extends BaseViewer implements IExecutablesChangeL
 		return new ExecutablesViewerComparator(sortType, column_sort_order[sortType]);
 	}
 
-	
 	@Override
 	protected String getColumnOrderKey() {
 		return P_COLUMN_ORDER_KEY_EXE;
@@ -192,21 +192,20 @@ public class ExecutablesViewer extends BaseViewer implements IExecutablesChangeL
 		// default visible columns
 		return "1,1,1,0,0,0"; //$NON-NLS-1$
 	}
-	
+
 	public void executablesChanged(final List<Executable> executables) {
-		// some executables have been updated. if one of them is currently
+		// some executables have been updated.  if one of them is currently
 		// selected, we need to update the source file list
-		UIJob refreshJob = new UIJob(
-				Messages.ExecutablesViewer_RefreshExecutablesView) {
+		UIJob refreshJob = new UIJob(Messages.ExecutablesViewer_RefreshExecutablesView) {
 
 			@Override
 			public IStatus runInUIThread(IProgressMonitor monitor) {
 				// if the user has selected an executable, they expect its
 				// list of source files to be refreshed automatically
-				if (getSelection() != null
-						&& getSelection() instanceof IStructuredSelection) {
-					IStructuredSelection selection = (IStructuredSelection) getSelection();
-
+				if (getSelection() != null &&
+					getSelection() instanceof IStructuredSelection) {
+					IStructuredSelection selection = (IStructuredSelection)getSelection();
+					
 					Object firstElement = selection.getFirstElement();
 					if (firstElement instanceof Executable) {
 						Executable executable = (Executable) firstElement;
@@ -224,8 +223,7 @@ public class ExecutablesViewer extends BaseViewer implements IExecutablesChangeL
 
 	public void executablesListChanged() {
 		// Executables list has changed so refresh the view.
-		UIJob refreshJob = new UIJob(
-				Messages.ExecutablesViewer_RefreshExecutablesView) {
+		UIJob refreshJob = new UIJob(Messages.ExecutablesViewer_RefreshExecutablesView) {
 
 			@Override
 			public IStatus runInUIThread(IProgressMonitor monitor) {

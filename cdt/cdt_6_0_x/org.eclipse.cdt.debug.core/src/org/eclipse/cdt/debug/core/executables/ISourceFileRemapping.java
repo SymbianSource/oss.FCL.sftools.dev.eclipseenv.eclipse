@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.cdt.debug.core.executables;
 
+import org.eclipse.core.runtime.IPath;
 
 /**
  * ISourceFileRemapping is used by the Executables Manager when finding missing
@@ -20,9 +21,6 @@ package org.eclipse.cdt.debug.core.executables;
  */
 public interface ISourceFileRemapping {
 
-	/**
-	 * @since 6.0
-	 */
-	String remapSourceFile(Executable executable, String filePath);
+	String remapSourceFile(IPath executable, String filePath);
 
 }

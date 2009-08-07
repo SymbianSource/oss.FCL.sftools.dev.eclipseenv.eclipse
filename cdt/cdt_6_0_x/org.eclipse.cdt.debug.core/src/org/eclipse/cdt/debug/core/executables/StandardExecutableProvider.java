@@ -34,21 +34,19 @@ import org.eclipse.debug.core.DebugPlugin;
 public class StandardExecutableProvider implements IProjectExecutablesProvider {
 
 	List<String> supportedNatureIds = new ArrayList<String>();
-
+	
 	public StandardExecutableProvider() {
 		supportedNatureIds.add(CProjectNature.C_NATURE_ID);
 		supportedNatureIds.add(CCProjectNature.CC_NATURE_ID);
 	}
-
+	
 	public List<String> getProjectNatures() {
 		return supportedNatureIds;
- 	}
+	}
 
-	
-	public List<Executable> getExecutables(IProject project,
-			IProgressMonitor monitor) {
+	public List<Executable> getExecutables(IProject project, IProgressMonitor monitor) {
 		List<Executable> executables = new ArrayList<Executable>();
-
+		
 		ICProject cproject = CModelManager.getDefault().create(project);
 		try {
 			IBinary[] binaries = cproject.getBinaryContainer().getBinaries();
@@ -64,12 +62,10 @@ public class StandardExecutableProvider implements IProjectExecutablesProvider {
 					IPath exePath = binary.getResource().getLocation();
 					if (exePath == null)
 						exePath = binary.getPath();
-					executables.add(new Executable(exePath, project, binary
-							.getResource()));
+					executables.add(new Executable(exePath, project, binary.getResource()));
 				}
-
+				
 				progress.worked(1);
-
 			}
 		} catch (CModelException e) {
 		}
@@ -77,22 +73,16 @@ public class StandardExecutableProvider implements IProjectExecutablesProvider {
 		return executables;
 	}
 
-	public IStatus removeExecutable(Executable executable,
-			IProgressMonitor monitor) {
+	public IStatus removeExecutable(Executable executable, IProgressMonitor monitor) {
 		IResource exeResource = executable.getResource();
 		if (exeResource != null) {
 			try {
 				exeResource.delete(true, monitor);
 			} catch (CoreException e) {
-				DebugPlugin.log(e);
-
+				DebugPlugin.log( e );
 			}
 			return Status.OK_STATUS;
 		}
-		return new Status(IStatus.WARNING, CDebugCorePlugin.PLUGIN_ID,
-				"Can't remove " + executable.getName()
-						+ ": it is built by project \""
-						+ executable.getProject().getName() + "\"");
+		return new Status(IStatus.WARNING, CDebugCorePlugin.PLUGIN_ID, "Can't remove " + executable.getName() + ": it is built by project \"" + executable.getProject().getName() + "\"");
 	}
-
 }
