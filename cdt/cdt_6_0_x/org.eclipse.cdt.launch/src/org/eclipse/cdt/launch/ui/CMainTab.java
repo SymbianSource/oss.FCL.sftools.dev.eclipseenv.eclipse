@@ -118,9 +118,13 @@ public class CMainTab extends CLaunchConfigurationTab {
 	 */
 	protected Combo fBuildConfigCombo;
 	// Build option UI widgets
+	/** @since 6.1 */
 	protected Button fDisableBuildButton;
+	/** @since 6.1 */
 	protected Button fEnableBuildButton;
+	/** @since 6.1 */
 	protected Button fWorkspaceSettingsButton;
+	/** @since 6.1 */
 	protected Link fWorkpsaceSettingsLink;
 
 	private final boolean fWantsTerminalOption;
@@ -170,10 +174,9 @@ public class CMainTab extends CLaunchConfigurationTab {
 		comp.setLayout(topLayout);
 
 		createVerticalSpacer(comp, 1);
-		createProjectGroup(comp, 1);
-		createBuildConfigCombo(comp, 1);
-		createBuildOptionGroup(comp, 1); 
 		createExeFileGroup(comp, 1);
+		createProjectGroup(comp, 1);
+		createBuildOptionGroup(comp, 1); 
 		createVerticalSpacer(comp, 1);
 		if (fSpecifyCoreFile) {
 			createCoreFileGroup(comp, 1);
@@ -329,6 +332,7 @@ public class CMainTab extends CLaunchConfigurationTab {
 		});
 	}
 
+	/** @since 6.1 */
 	protected void createBuildOptionGroup(final Composite parent, int colSpan) {
 		Group buildGroup = new Group(parent, SWT.NONE);
 		GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
@@ -340,7 +344,31 @@ public class CMainTab extends CLaunchConfigurationTab {
 		gridLayout.makeColumnsEqualWidth= true;
 		buildGroup.setLayoutData(gridData);
 		buildGroup.setLayout(gridLayout);
-		buildGroup.setText("Build (if required) before launching"); //$NON-NLS-1$
+		buildGroup.setText(LaunchMessages.getString("CMainTab.Build_options")); //$NON-NLS-1$
+		
+		createBuildConfigCombo(buildGroup, 2);
+		
+		fWorkspaceSettingsButton = new Button(buildGroup, SWT.RADIO);
+		fWorkspaceSettingsButton.setText(LaunchMessages.getString("CMainTab.Workspace_settings_button_label")); //$NON-NLS-1$
+		fWorkspaceSettingsButton.setToolTipText(LaunchMessages.getString("CMainTab.Workspace_settings_button_tooltip")); //$NON-NLS-1$
+		fWorkspaceSettingsButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+
+		fWorkpsaceSettingsLink = new Link(buildGroup, SWT.NONE); //$NON-NLS-1$
+		fWorkpsaceSettingsLink.setText(LaunchMessages.getString("CMainTab.Workspace_settings_link_label")); //$NON-NLS-1$
+		fWorkpsaceSettingsLink.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				PreferencesUtil.createPreferenceDialogOn(
+						parent.getShell(), 
+						LaunchMessages.getString("CMainTab.Workspace_settings_page_id"), //$NON-NLS-1$
+						null, 
+						null).open();
+			}
+		});
 
 		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
 		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
@@ -365,28 +393,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 		});
 		
 		new Label(buildGroup, SWT.NONE);
-		
-		fWorkspaceSettingsButton = new Button(buildGroup, SWT.RADIO);
-		fWorkspaceSettingsButton.setText(LaunchMessages.getString("CMainTab.Workspace_settings_button_label")); //$NON-NLS-1$
-		fWorkspaceSettingsButton.setToolTipText(LaunchMessages.getString("CMainTab.Workspace_settings_button_tooltip")); //$NON-NLS-1$
-		fWorkspaceSettingsButton.addSelectionListener(new SelectionAdapter() {
-
-			public void widgetSelected(SelectionEvent evt) {
-				updateLaunchConfigurationDialog();
-			}
-		});
-
-		fWorkpsaceSettingsLink = new Link(buildGroup, SWT.NONE); //$NON-NLS-1$
-		fWorkpsaceSettingsLink.setText(LaunchMessages.getString("CMainTab.Workspace_settings_link_label")); //$NON-NLS-1$
-		fWorkpsaceSettingsLink.addSelectionListener(new SelectionAdapter() {
-			public void widgetSelected(SelectionEvent e) {
-				PreferencesUtil.createPreferenceDialogOn(
-						parent.getShell(), 
-						LaunchMessages.getString("CMainTab.Workspace_settings_page_id"), //$NON-NLS-1$
-						null, 
-						null).open();
-			}
-		});
 	}
 	/** @since 6.0 */
 	protected void createCoreFileGroup(Composite parent, int colSpan) {
@@ -514,10 +520,11 @@ public class CMainTab extends CLaunchConfigurationTab {
 			} catch (CoreException ce) {
 				LaunchUIPlugin.log(ce);
 			}
-			fProgText.setText(coreName);
+			fCoreText.setText(coreName);
 		}
 	}
 
+	/** @since 6.1 */
 	protected void updateBuildOptionFromConfig(ILaunchConfiguration config) {
 		int buildBeforeLaunchValue = ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_USE_WORKSPACE_SETTING;
 		try {

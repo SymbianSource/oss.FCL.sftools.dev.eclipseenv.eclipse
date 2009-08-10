@@ -139,7 +139,8 @@ abstract public class AbstractCLaunchDelegate extends LaunchConfigurationDelegat
 	/**
 	 * Used in conjunction with build before launch settings in the main tab.
 	 */
-	private boolean buildForLaunchCalled;
+	private boolean workspaceBuildBeforeLaunch;
+	
 	abstract public void launch(ILaunchConfiguration configuration, String mode, ILaunch launch, IProgressMonitor monitor)
 			throws CoreException;
 
@@ -600,7 +601,7 @@ abstract public class AbstractCLaunchDelegate extends LaunchConfigurationDelegat
 	@Override
 	public boolean buildForLaunch(ILaunchConfiguration configuration, String mode, IProgressMonitor monitor) throws CoreException {
 
-		buildForLaunchCalled = true;
+		workspaceBuildBeforeLaunch = true;
 		
 		// check the build before launch setting and honor it
 		int buildBeforeLaunchValue = configuration.getAttribute(ICDTLaunchConfigurationConstants.ATTR_BUILD_BEFORE_LAUNCH,
@@ -684,7 +685,7 @@ abstract public class AbstractCLaunchDelegate extends LaunchConfigurationDelegat
 	@Override
 	public boolean finalLaunchCheck(ILaunchConfiguration configuration, String mode, IProgressMonitor monitor) throws CoreException {
 		
-		if (!buildForLaunchCalled) {
+		if (!workspaceBuildBeforeLaunch) {
 			// buildForLaunch was not called which means that the workspace pref is disabled.  see if the user enabled the
 			// launch specific setting in the main tab.  if so, we do call buildBeforeLaunch here.
 			if (ICDTLaunchConfigurationConstants.BUILD_BEFORE_LAUNCH_ENABLED == configuration.getAttribute(ICDTLaunchConfigurationConstants.ATTR_BUILD_BEFORE_LAUNCH,
@@ -807,7 +808,7 @@ abstract public class AbstractCLaunchDelegate extends LaunchConfigurationDelegat
 			monitor = new NullProgressMonitor();
 		}
 
-		buildForLaunchCalled = false;
+		workspaceBuildBeforeLaunch = false;
 
 		int scale = 1000;
 		int totalWork = 2 * scale;
