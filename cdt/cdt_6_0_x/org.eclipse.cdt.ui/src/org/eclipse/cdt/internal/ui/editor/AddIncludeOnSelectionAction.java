@@ -242,8 +242,7 @@ public class AddIncludeOnSelectionAction extends TextEditorAction {
 			// class, struct, union, enum
 			if (indexBinding instanceof ICompositeType || indexBinding instanceof IEnumeration) {
 				definitions= index.findDefinitions(indexBinding);
-			} else if (indexBinding instanceof ITypedef ||
-					(indexBinding instanceof IFunction && !(indexBinding instanceof ICPPMethod))) {
+			} else if (indexBinding instanceof ITypedef || (indexBinding instanceof IFunction)) {
 				definitions= index.findDeclarations(indexBinding);
 			}
 			if (definitions != null) {
