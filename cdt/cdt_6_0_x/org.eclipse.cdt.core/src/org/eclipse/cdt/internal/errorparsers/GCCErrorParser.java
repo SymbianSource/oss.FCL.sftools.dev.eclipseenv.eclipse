@@ -53,8 +53,7 @@ public class GCCErrorParser extends AbstractErrorParser {
 			@Override
 			public int getSeverity(Matcher matcher) {
 				String warningGroup = matcher.group(4);
-				if (warningGroup != null && (warningGroup.toLowerCase().endsWith("warning:") || //$NON-NLS-1$
-						warningGroup.trim().toLowerCase().startsWith("warning:")) ) { //$NON-NLS-1$
+				if (warningGroup != null && warningGroup.toLowerCase().endsWith("warning")) { //$NON-NLS-1$
 					return IMarkerGenerator.SEVERITY_WARNING;
 				}
 				
