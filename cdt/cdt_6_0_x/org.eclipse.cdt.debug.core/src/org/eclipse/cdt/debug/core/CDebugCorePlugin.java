@@ -354,6 +354,8 @@ public class CDebugCorePlugin extends Plugin {
 			fCommonSourceLookupDirector = new CommonSourceLookupDirector();
 			String newMemento = CDebugCorePlugin.getDefault().getPluginPreferences().getString( ICDebugInternalConstants.PREF_COMMON_SOURCE_CONTAINERS );
 			if ( newMemento.length() == 0 ) {
+				fCommonSourceLookupDirector.initializeParticipants();
+
 				// Convert source locations to source containers
 				convertSourceLocations( fCommonSourceLookupDirector );
 			}
