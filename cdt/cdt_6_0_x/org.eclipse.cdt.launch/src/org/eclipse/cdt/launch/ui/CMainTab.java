@@ -348,6 +348,26 @@ public class CMainTab extends CLaunchConfigurationTab {
 		
 		createBuildConfigCombo(buildGroup, 2);
 		
+		fEnableBuildButton = new Button(buildGroup, SWT.RADIO);
+		fEnableBuildButton.setText(LaunchMessages.getString("CMainTab.Enable_build_button_label")); //$NON-NLS-1$
+		fEnableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Enable_build_button_tooltip")); //$NON-NLS-1$
+		fEnableBuildButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+
+		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
+		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
+		fDisableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Disable_build_button_tooltip")); //$NON-NLS-1$
+		fDisableBuildButton.addSelectionListener(new SelectionAdapter() {
+
+			public void widgetSelected(SelectionEvent evt) {
+				updateLaunchConfigurationDialog();
+			}
+		});
+
 		fWorkspaceSettingsButton = new Button(buildGroup, SWT.RADIO);
 		fWorkspaceSettingsButton.setText(LaunchMessages.getString("CMainTab.Workspace_settings_button_label")); //$NON-NLS-1$
 		fWorkspaceSettingsButton.setToolTipText(LaunchMessages.getString("CMainTab.Workspace_settings_button_tooltip")); //$NON-NLS-1$
@@ -370,29 +390,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 			}
 		});
 
-		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
-		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
-		fDisableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Disable_build_button_tooltip")); //$NON-NLS-1$
-		fDisableBuildButton.addSelectionListener(new SelectionAdapter() {
-
-			public void widgetSelected(SelectionEvent evt) {
-				updateLaunchConfigurationDialog();
-			}
-		});
-		
-		new Label(buildGroup, SWT.NONE);
-
-		fEnableBuildButton = new Button(buildGroup, SWT.RADIO);
-		fEnableBuildButton.setText(LaunchMessages.getString("CMainTab.Enable_build_button_label")); //$NON-NLS-1$
-		fEnableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Enable_build_button_tooltip")); //$NON-NLS-1$
-		fEnableBuildButton.addSelectionListener(new SelectionAdapter() {
-
-			public void widgetSelected(SelectionEvent evt) {
-				updateLaunchConfigurationDialog();
-			}
-		});
-		
-		new Label(buildGroup, SWT.NONE);
 	}
 	/** @since 6.0 */
 	protected void createCoreFileGroup(Composite parent, int colSpan) {
