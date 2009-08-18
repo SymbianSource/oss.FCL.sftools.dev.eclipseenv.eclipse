@@ -170,7 +170,7 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 		// listen for events we're interested in
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(this, IResourceChangeEvent.POST_CHANGE | IResourceChangeEvent.POST_BUILD);
 		CoreModel.getDefault().getProjectDescriptionManager().addCProjectDescriptionListener(this,
-				CProjectDescriptionEvent.DATA_APPLIED);
+				CProjectDescriptionEvent.APPLIED);
 		
 		// schedule a refresh so we get up to date
 		scheduleRefresh();
@@ -551,7 +551,7 @@ public class ExecutablesManager extends PlatformObject implements IResourceChang
 
 		int eventType = event.getEventType();
 
-		if (eventType == CProjectDescriptionEvent.DATA_APPLIED) {
+		if (eventType == CProjectDescriptionEvent.APPLIED) {
 			
 			synchronized (executablesMap) {
 				// see if the active build config has changed

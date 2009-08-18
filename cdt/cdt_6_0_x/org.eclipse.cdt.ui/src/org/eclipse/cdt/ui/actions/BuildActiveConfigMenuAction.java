@@ -77,7 +77,7 @@ public class BuildActiveConfigMenuAction extends ChangeBuildConfigActionBase
 	public void init(IWorkbenchWindow window) {
 		buildaction = new BuildAction(window, IncrementalProjectBuilder.INCREMENTAL_BUILD);
 		ICProjectDescriptionManager mngr = CoreModel.getDefault().getProjectDescriptionManager();
-		mngr.addCProjectDescriptionListener(this, CProjectDescriptionEvent.DATA_APPLIED);
+		mngr.addCProjectDescriptionListener(this, CProjectDescriptionEvent.APPLIED);
 	}
 
 	/**
