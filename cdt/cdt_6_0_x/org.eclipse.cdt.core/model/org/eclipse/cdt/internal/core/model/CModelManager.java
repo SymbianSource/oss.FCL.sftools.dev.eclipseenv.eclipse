@@ -269,7 +269,7 @@ public class CModelManager implements IResourceChangeListener, ICDescriptorListe
 			for (int i = 0; i < children.length; ++i) {
 				if (children[i] instanceof ISourceRoot) {
 					ISourceRoot root = (ISourceRoot)children[i];
-					if (root.isOnSourceEntry(folder)) {
+					if (root.isOnSourceEntry(folder) || isParentOfSourceRoot(root, folder)) {
 						// Get the container
 						IPath path = folder.getFullPath();
 						path = path.removeFirstSegments(root.getPath().segmentCount());
@@ -1275,6 +1275,21 @@ public class CModelManager implements IResourceChangeListener, ICDescriptorListe
 		removeBinaryRunner(project);
 		// stop indexing jobs for this project
 		CCoreInternals.getPDOMManager().preCloseProject(create(project));
+	}
+	
+	/**
+	 * For nested source roots, checks whether or not a source root is a parent of a given folder
+	 * @param root - The source root to check against
+	 * @param folder - Folder to check whether or not the given root is a child
+	 * @return true is the IFolder is a parent of the ISourceRoot
+	 */
+	public boolean isParentOfSourceRoot(ISourceRoot root, IFolder folder) {
+		if (CCorePlugin.showSourceRootsAtTopOfProject()){
+			// not nested source roots so no need to check
+			return false;
+		}
+		
+		return folder.getFullPath().isPrefixOf(root.getPath());
 	}
 
 }
