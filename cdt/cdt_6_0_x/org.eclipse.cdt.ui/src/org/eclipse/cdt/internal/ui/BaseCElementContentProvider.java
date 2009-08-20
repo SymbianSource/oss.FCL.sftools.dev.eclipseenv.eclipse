@@ -318,7 +318,11 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 		}
 		Object parent = null;
 		if (element instanceof ICElement) {
-			parent = ((ICElement)element).getParent();
+			if (element instanceof ICContainer && !CCorePlugin.showSourceRootsAtTopOfProject()) {
+				parent = ((ICContainer) element).getResource().getParent();
+			}
+			else
+				parent = ((ICElement)element).getParent(); 
 			// translate working copy parent to original TU,
 			// because working copies are never returned by getChildren
 			// this is necessary for proper show-in-target support
