@@ -36,7 +36,7 @@ public class GCCErrorParser extends AbstractErrorParser {
 		new ErrorPattern(Messages.GCCErrorParser_skip_note),
 		new ErrorPattern(Messages.GCCErrorParser_sikp_instantiatedFromHere),
 		// The following are not...
-		new ErrorPattern(Messages.GCCErrorParser_Warnings, 1, 2, 5, 0, 0) {
+		new ErrorPattern(Messages.GCCErrorParser_Warnings, 1, 2, 6, 0, 0) {
 			@Override
 			public String getVarName(Matcher matcher) {
 				String desc = getDesc(matcher);
@@ -53,7 +53,7 @@ public class GCCErrorParser extends AbstractErrorParser {
 			@Override
 			public int getSeverity(Matcher matcher) {
 				String warningGroup = matcher.group(4);
-				if (warningGroup != null && warningGroup.toLowerCase().endsWith("warning")) { //$NON-NLS-1$
+				if (warningGroup != null && warningGroup.toLowerCase().endsWith("warning:")) { //$NON-NLS-1$
 					return IMarkerGenerator.SEVERITY_WARNING;
 				}
 				
