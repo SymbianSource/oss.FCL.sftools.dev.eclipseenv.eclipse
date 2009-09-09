@@ -107,6 +107,15 @@ public interface IRunControl extends IDsfService
         StateChangeReason getStateChangeReason();
     }
 
+    public interface IExecutionDMData2 extends IExecutionDMData {
+        /**
+         * Optional method to return more detail about the suspended event, e.g.
+         * "Divide by zero exception"
+         * @return more detail about the suspended event, or null
+         */
+        String getDetails();
+    }
+
     /**
      * Retrieves execution data for given context.
      * @param dmc Context to retrieve data for.

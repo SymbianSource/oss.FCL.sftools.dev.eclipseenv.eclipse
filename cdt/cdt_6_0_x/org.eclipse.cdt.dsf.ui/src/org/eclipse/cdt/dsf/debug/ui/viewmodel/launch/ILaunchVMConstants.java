@@ -36,4 +36,6 @@ public interface ILaunchVMConstants {
     
     public static final String PROP_STATE_CHANGE_REASON = "state_change_reason";  //$NON-NLS-1$
 
+    public static final String PROP_STATE_CHANGE_DETAILS = "state_change_details";  //$NON-NLS-1$
+
 }
