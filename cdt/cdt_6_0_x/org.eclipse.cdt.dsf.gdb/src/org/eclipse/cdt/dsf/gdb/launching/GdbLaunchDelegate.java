@@ -30,6 +30,7 @@ import org.eclipse.cdt.dsf.gdb.service.GdbDebugServicesFactory;
 import org.eclipse.cdt.dsf.gdb.service.GdbDebugServicesFactoryNS;
 import org.eclipse.cdt.dsf.gdb.service.SessionType;
 import org.eclipse.cdt.dsf.service.DsfSession;
+import org.eclipse.cdt.launch.AbstractCLaunchDelegate;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -46,17 +47,14 @@ import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchManager;
-import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.debug.core.model.ISourceLocator;
-import org.eclipse.debug.core.model.LaunchConfigurationDelegate;
  
 /**
  * The shared launch configuration delegate for the DSF/GDB debugger.
  * This delegate supports all configuration types (local, remote, attach, etc)
  */
 @ThreadSafe
-public class GdbLaunchDelegate extends LaunchConfigurationDelegate 
-    implements ILaunchConfigurationDelegate2
+public class GdbLaunchDelegate extends AbstractCLaunchDelegate
 {
     public final static String GDB_DEBUG_MODEL_ID = "org.eclipse.cdt.dsf.gdb"; //$NON-NLS-1$
 
@@ -391,4 +389,12 @@ public class GdbLaunchDelegate extends LaunchConfigurationDelegate
 
 		return new GdbDebugServicesFactory(version);
 	}
+
+	@Override
+	protected String getPluginID() {
+		return GdbPlugin.getUniqueIdentifier();
+	}
+	
+	
+	
 }
