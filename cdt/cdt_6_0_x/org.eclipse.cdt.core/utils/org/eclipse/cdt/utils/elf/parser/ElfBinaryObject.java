@@ -13,17 +13,21 @@ package org.eclipse.cdt.utils.elf.parser;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.cdt.core.IAddress;
 import org.eclipse.cdt.core.IAddressFactory;
 import org.eclipse.cdt.core.IBinaryParser;
 import org.eclipse.cdt.core.ISymbolReader;
 import org.eclipse.cdt.core.IBinaryParser.IBinaryFile;
 import org.eclipse.cdt.core.IBinaryParser.ISymbol;
 import org.eclipse.cdt.utils.AR;
+import org.eclipse.cdt.utils.Addr32;
 import org.eclipse.cdt.utils.Addr32Factory;
+import org.eclipse.cdt.utils.Addr64;
 import org.eclipse.cdt.utils.BinaryObjectAdapter;
 import org.eclipse.cdt.utils.Symbol;
 import org.eclipse.cdt.utils.elf.Elf;
@@ -177,12 +181,26 @@ public class ElfBinaryObject extends BinaryObjectAdapter {
 
 		symbols = list.toArray(NO_SYMBOLS);
 		Arrays.sort(symbols);
+		
 		list.clear();
 	}
 
 	protected void addSymbols(Elf.Symbol[] array, int type, List<Symbol> list) {
+		boolean duplicateAddressFound;
 		for (int i = 0; i < array.length; i++) {
-			list.add(new Symbol(this, array[i].toString(), type, array[i].st_value, array[i].st_size));
+			// Multiple function symbol entries for the same address are generated
+			// do not add duplicate symbols with 0 size to the list
+			duplicateAddressFound = false;
+			if (type == ISymbol.FUNCTION && array[i].st_size == 0){
+				for (Symbol s : list) {
+					if (s.getAddress().equals(array[i].st_value)){
+						duplicateAddressFound = true;
+						break;
+					}
+				}
+			}
+			if (!duplicateAddressFound)	
+				list.add(new Symbol(this, array[i].toString(), type, array[i].st_value, array[i].st_size));
 		}
 	}
 
