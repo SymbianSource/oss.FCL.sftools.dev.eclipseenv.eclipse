@@ -535,11 +535,17 @@ public class BaseCElementContentProvider implements ITreeContentProvider {
 			}
 		} catch (CModelException e) {
 		}
-		if (objects == null || objects.length == 0) {
-			return children;
+		
+		Object[] result = children;
+		if (missingElements.size() > 0) {
+            result = concatenate(result, missingElements.toArray());
 		}
-		Object[] result = concatenate(children, objects);
-		return concatenate(result, missingElements.toArray());
+
+		if (objects != null && objects.length > 0) {
+			result = concatenate(result, objects);
+		}
+
+		return result;
 	}
 
 	private List<ICElement> getMissingElements(ICContainer container, ICElement[] elements) {
