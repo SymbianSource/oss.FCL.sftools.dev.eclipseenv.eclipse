@@ -128,7 +128,7 @@ public class PDABreakpointAttributeTranslator implements IBreakpointAttributeTra
         return bp.getModelIdentifier().equals(PDAPlugin.ID_PDA_DEBUG_MODEL);
     }
 
-    public void updateBreakpointStatus(IBreakpoint bp) {
+    public void updateBreakpointStatus(IBreakpoint bp, EBreakpointStatusChange breakpointStatusChange) {
         // PDA breakpoints do not support status reporting
     }
 

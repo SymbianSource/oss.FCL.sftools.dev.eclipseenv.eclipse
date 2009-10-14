@@ -29,6 +29,7 @@ import org.eclipse.cdt.dsf.concurrent.RequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.ThreadSafe;
 import org.eclipse.cdt.dsf.datamodel.DMContexts;
 import org.eclipse.cdt.dsf.datamodel.IDMContext;
+import org.eclipse.cdt.dsf.debug.service.IBreakpointAttributeTranslator.EBreakpointStatusChange;
 import org.eclipse.cdt.dsf.debug.service.IBreakpoints.IBreakpointDMContext;
 import org.eclipse.cdt.dsf.debug.service.IBreakpoints.IBreakpointsTargetDMContext;
 import org.eclipse.cdt.dsf.internal.DsfPlugin;
@@ -351,7 +352,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
                             { setSystem(true); }
                             @Override
                             protected IStatus run(IProgressMonitor monitor) {
-                                fAttributeTranslator.updateBreakpointStatus(bp);
+                                fAttributeTranslator.updateBreakpointStatus(bp, EBreakpointStatusChange.EUninstalled);
                                 return Status.OK_STATUS;
                             };
                         }.schedule();
@@ -396,14 +397,14 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
         // Update the breakpoint status when all back-end breakpoints have been installed
     	final CountingRequestMonitor installRM = new CountingRequestMonitor(getExecutor(), rm) {
 			@Override
-			protected void handleCompleted() {
+			protected void handleSuccess() {
 				// Store the platform breakpoint
 				platformBPs.put(breakpoint, attrsList);
                 new Job("Breakpoint status update") { //$NON-NLS-1$
                     { setSystem(true); }
                     @Override
                     protected IStatus run(IProgressMonitor monitor) {
-                        fAttributeTranslator.updateBreakpointStatus(breakpoint);
+                        fAttributeTranslator.updateBreakpointStatus(breakpoint, EBreakpointStatusChange.EInstalled);
                         return Status.OK_STATUS;
                     };
                 }.schedule();
@@ -433,6 +434,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 					} else {
                         // TODO (bug 219841): need to add breakpoint error status tracking
                         // in addition to fBreakpointDMContexts.
+						installRM.setStatus(getStatus());
 					}
 					installRM.done();
                 }
@@ -479,7 +481,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
                     { setSystem(true); }
                     @Override
                     protected IStatus run(IProgressMonitor monitor) {
-                        fAttributeTranslator.updateBreakpointStatus(breakpoint);
+                        fAttributeTranslator.updateBreakpointStatus(breakpoint, EBreakpointStatusChange.EUninstalled);
                         return Status.OK_STATUS;
                     };
                 }.schedule();
@@ -594,7 +596,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
                     { setSystem(true); }
                     @Override
                     protected IStatus run(IProgressMonitor monitor) {
-                        fAttributeTranslator.updateBreakpointStatus(breakpoint);
+                        fAttributeTranslator.updateBreakpointStatus(breakpoint, EBreakpointStatusChange.EModified);
                         return Status.OK_STATUS;
                     };
                 }.schedule();

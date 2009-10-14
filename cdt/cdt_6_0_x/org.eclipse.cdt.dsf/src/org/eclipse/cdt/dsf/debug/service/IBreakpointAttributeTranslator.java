@@ -37,5 +37,9 @@ public interface IBreakpointAttributeTranslator {
 
     public boolean supportsBreakpoint(IBreakpoint bp);
 
-    public void updateBreakpointStatus(IBreakpoint bp);
+    enum EBreakpointStatusChange {
+    	EInstalled, EUninstalled, EModified
+    }
+    
+    public void updateBreakpointStatus(IBreakpoint bp, EBreakpointStatusChange change);
 }
