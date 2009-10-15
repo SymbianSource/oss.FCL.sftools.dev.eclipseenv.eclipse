@@ -341,25 +341,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
         countingRm.setDoneCount(platformBPs.size());
 
         for (final IBreakpoint bp : platformBPs.keySet()) {
-            uninstallBreakpoint(dmc, bp, 
-                new RequestMonitor(getExecutor(), countingRm) {
-                    @Override
-                    protected void handleCompleted() {
-                        // After the breakpoint is removed from target.  Call the attribute 
-                        // translator to refresh breakpoint status based on the new target 
-                        // breakpoint status. 
-                        new Job("Breakpoint status update") { //$NON-NLS-1$
-                            { setSystem(true); }
-                            @Override
-                            protected IStatus run(IProgressMonitor monitor) {
-                                fAttributeTranslator.updateBreakpointStatus(bp, EBreakpointStatusChange.EUninstalled);
-                                return Status.OK_STATUS;
-                            };
-                        }.schedule();
-
-                        countingRm.done();
-                    }
-                });
+            uninstallBreakpoint(dmc, bp, countingRm); 
         }
     }
 
