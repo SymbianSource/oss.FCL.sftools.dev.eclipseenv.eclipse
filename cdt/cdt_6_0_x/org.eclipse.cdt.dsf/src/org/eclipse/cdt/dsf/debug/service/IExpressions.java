@@ -13,7 +13,6 @@ package org.eclipse.cdt.dsf.debug.service;
 
 import java.util.Map;
 
-import org.eclipse.cdt.core.IAddress;
 import org.eclipse.cdt.dsf.concurrent.DataRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.RequestMonitor;
 import org.eclipse.cdt.dsf.datamodel.IDMContext;
@@ -46,7 +45,7 @@ public interface IExpressions extends IFormattedValues {
      * The address and size of an expression.
      */
     public interface IExpressionDMAddress {
-    	IAddress getAddress();
+    	Object getAddress();
     	int getSize();
     }
     

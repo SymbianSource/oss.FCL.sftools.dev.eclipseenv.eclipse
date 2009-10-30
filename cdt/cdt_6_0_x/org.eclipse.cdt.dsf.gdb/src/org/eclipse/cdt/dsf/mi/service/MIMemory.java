@@ -440,12 +440,14 @@ public class MIMemory extends AbstractDsfService implements IMemory, ICachingSer
 						// Figure out which memory area was modified
 						IExpressionDMAddress expression = getData();
 						final int count = expression.getSize();
-						IAddress expAddress = expression.getAddress();
+						Object expAddress = expression.getAddress();
 						final Addr64 address;
 						if (expAddress instanceof Addr64)
 							address = (Addr64) expAddress;
+						else if (expAddress instanceof IAddress)
+							address = new Addr64(((IAddress)expAddress).getValue());
 						else
-							address = new Addr64(expAddress.getValue());
+							return; // not a valid memory address
 
 						final IMemoryDMContext memoryDMC = DMContexts.getAncestorOfType(context, IMemoryDMContext.class);
 						getMemoryCache(memoryDMC).refreshMemory(memoryDMC, address, 0, 1, count,

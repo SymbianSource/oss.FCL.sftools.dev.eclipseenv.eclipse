@@ -707,8 +707,15 @@ public class VariableVMNode extends AbstractExpressionVMNode
     protected void fillAddressDataProperties(IPropertiesUpdate update, IExpressionDMAddress address)
     { 
 	    IExpressionDMAddress expression = address;
-	    IAddress expAddress = expression.getAddress();
-	    update.setProperty(PROP_VARIABLE_ADDRESS, "0x" + expAddress.toString(16)); //$NON-NLS-1$
+	    Object expAddress = expression.getAddress();
+
+	    String addrString = ""; //$NON-NLS-1$
+	    if (expAddress instanceof IAddress)
+	    	addrString = "0x" + ((IAddress)expAddress).toString(16); //$NON-NLS-1$
+	    else if (expAddress instanceof String)
+	    	addrString = (String)expAddress;
+
+	    update.setProperty(PROP_VARIABLE_ADDRESS, addrString);
     }
     
     public CellEditor getCellEditor(IPresentationContext context, String columnId, Object element, Composite parent) {
