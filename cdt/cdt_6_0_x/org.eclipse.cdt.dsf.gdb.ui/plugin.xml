@@ -180,6 +180,16 @@
       </renderingBindings>
    </extension>
 
+   <extension
+         point="org.eclipse.cdt.ui.textHovers">
+      <hover
+            label="%editorTextHover.description"
+            description="%editorTextHover.description"
+            class="org.eclipse.cdt.dsf.gdb.internal.ui.GdbDebugTextHover"
+            id="org.eclipse.cdt.dsf.gdb.internal.ui.GdbDebugTextHover">
+      </hover>
+   </extension>
+
    <extension point="org.eclipse.ui.propertyPages">
          <page class="org.eclipse.cdt.dsf.gdb.internal.ui.breakpoints.CBreakpointGdbThreadFilterPage"
             id="org.eclipse.cdt.dsf.gdb.breakpoint.filtering"

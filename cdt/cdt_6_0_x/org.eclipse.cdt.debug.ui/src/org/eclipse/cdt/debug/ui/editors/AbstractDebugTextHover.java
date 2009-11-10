@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 import org.eclipse.cdt.debug.internal.ui.CDebugUIUtils;
 import org.eclipse.cdt.debug.ui.CDebugUIPlugin;
 import org.eclipse.cdt.ui.text.c.hover.ICEditorTextHover;
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.ui.IDebugUIConstants;
 import org.eclipse.jface.text.BadLocationException;
@@ -27,6 +28,7 @@ import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextHoverExtension;
 import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IPartListener;
 import org.eclipse.ui.ISelectionListener;
@@ -75,6 +77,8 @@ class LanguageOperators {
 
 /**
  * The text hovering support for C/C++ debugger.
+ * 
+ * @since 6.1
  */
 
 public abstract class AbstractDebugTextHover implements ICEditorTextHover, ITextHoverExtension,
@@ -82,9 +86,9 @@ public abstract class AbstractDebugTextHover implements ICEditorTextHover, IText
 
 	static final private int MAX_HOVER_INFO_SIZE = 100;
 
-	protected ISelection fSelection = null;
+	private ISelection fSelection = null;
 
-	protected IEditorPart fEditor;
+	private IEditorPart fEditor;
 
 	protected abstract boolean canEvaluate();
 	
@@ -226,6 +230,28 @@ public abstract class AbstractDebugTextHover implements ICEditorTextHover, IText
 		return null;
 	}
 
+	protected ISelection getSelection() {
+	    return fSelection;
+	}
+
+	protected IAdaptable getSelectionAdaptable() {
+        if (fSelection instanceof IStructuredSelection) {
+            IStructuredSelection selection = (IStructuredSelection) fSelection;
+            if (selection.size() == 1) {
+                Object element = selection.getFirstElement();
+                if (element instanceof IAdaptable) {
+                    return (IAdaptable) element;
+                }
+            }
+        }
+        return null;
+    }
+
+
+	protected IEditorPart getEditor() {
+	    return fEditor;
+	}
+	
 	/**
 	 * Replace any characters in the given String that would confuse an HTML parser with their escape sequences.
 	 */

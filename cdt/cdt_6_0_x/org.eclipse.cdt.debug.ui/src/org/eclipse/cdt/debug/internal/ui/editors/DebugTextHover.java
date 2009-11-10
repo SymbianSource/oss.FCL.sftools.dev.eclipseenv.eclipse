@@ -16,7 +16,6 @@ import org.eclipse.cdt.debug.core.model.ICStackFrame;
 import org.eclipse.cdt.debug.ui.editors.AbstractDebugTextHover;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.debug.core.DebugException;
-import org.eclipse.jface.viewers.IStructuredSelection;
 
 /**
  * The text hovering support for C/C++ debugger.
@@ -30,17 +29,11 @@ public class DebugTextHover extends AbstractDebugTextHover {
 	 * @return the evaluation stack frame, or <code>null</code> if none
 	 */
 	protected ICStackFrame getFrame() {
-		if (fSelection instanceof IStructuredSelection) {
-			IStructuredSelection selection = (IStructuredSelection) fSelection;
-			if (selection.size() == 1) {
-				Object el = selection.getFirstElement();
-				if (el instanceof IAdaptable) {
-					return (ICStackFrame) ((IAdaptable) el)
-							.getAdapter(ICStackFrame.class);
-				}
-			}
-		}
-		return null;
+        IAdaptable adaptable = getSelectionAdaptable();
+        if (adaptable != null) {
+            return (ICStackFrame) adaptable.getAdapter(ICStackFrame.class);
+        }
+        return null;
 	}
 
 	@Override

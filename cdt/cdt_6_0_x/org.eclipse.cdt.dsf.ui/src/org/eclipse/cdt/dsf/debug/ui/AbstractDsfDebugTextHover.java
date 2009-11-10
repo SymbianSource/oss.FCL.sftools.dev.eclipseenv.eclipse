@@ -30,14 +30,21 @@ import org.eclipse.cdt.dsf.internal.ui.DsfUIPlugin;
 import org.eclipse.cdt.dsf.service.DsfServicesTracker;
 import org.eclipse.cdt.dsf.service.DsfSession;
 import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.debug.core.model.IDebugModelProvider;
 
 /**
- * An implementation of AbstractDebugTextHover using DSF services
+ * An implementation of AbstractDebugTextHover using DSF services.
+ * 
+ * @since 2.1
  */
-public class DebugTextHover extends AbstractDebugTextHover {
+abstract public class AbstractDsfDebugTextHover extends AbstractDebugTextHover {
 
-	public class GetExpressionValueQuery extends Query<FormattedValueDMData> {
+    /**
+     * Returns the debug model ID of that this debug text hover is to be used for.
+     */
+    abstract protected String getModelId();
+    
+	private static class GetExpressionValueQuery extends Query<FormattedValueDMData> {
     	private final IFrameDMContext frame;
     	private final String expression;
 		private DsfServicesTracker dsfServicesTracker;
@@ -71,21 +78,33 @@ public class DebugTextHover extends AbstractDebugTextHover {
     }
 
 	protected IFrameDMContext getFrame() {
-		if (fSelection instanceof IStructuredSelection) {
-			IStructuredSelection selection = (IStructuredSelection) fSelection;
-			if (selection.size() == 1) {
-				Object element = selection.getFirstElement();
-				if (element instanceof IAdaptable) {
-					return (IFrameDMContext) ((IAdaptable) element).getAdapter(IFrameDMContext.class);
-				}
-			}
+	    IAdaptable adaptable = getSelectionAdaptable();
+	    if (adaptable != null) {
+	        return (IFrameDMContext) adaptable.getAdapter(IFrameDMContext.class);
 		}
 		return null;
 	}
 
 	@Override
 	protected boolean canEvaluate() {
-		return getFrame() != null;
+	    if (getFrame() == null) {
+	        return false;
+	    }
+	    
+		IAdaptable adaptable = getSelectionAdaptable();
+		if (adaptable != null) {
+		    IDebugModelProvider modelProvider = (IDebugModelProvider)adaptable.getAdapter(IDebugModelProvider.class);
+		    if (modelProvider != null) {
+		        String[] models = modelProvider.getModelIdentifiers();
+		        String myModel = getModelId();
+		        for (int i = 0; i < models.length; i++) {
+		            if (models[i].equals(myModel)) {
+		                return true;
+		            }
+		        }
+		    }
+		}
+		return false;
 	}
 
 	@Override
@@ -93,15 +112,19 @@ public class DebugTextHover extends AbstractDebugTextHover {
 		IFrameDMContext frame = getFrame();
 		String sessionId = frame.getSessionId();
 		DsfServicesTracker dsfServicesTracker = new DsfServicesTracker(DsfUIPlugin.getBundleContext(), sessionId);
-		GetExpressionValueQuery query = new GetExpressionValueQuery(frame, expression, dsfServicesTracker);
-		DsfSession session = DsfSession.getSession(sessionId);
-        session.getExecutor().execute(query);
-        try {
-        	FormattedValueDMData data = query.get();
-        	if (data != null)
-        		return data.getFormattedValue();
-        } catch (Exception e) {
-        }
+		try {
+			GetExpressionValueQuery query = new GetExpressionValueQuery(frame, expression, dsfServicesTracker);
+			DsfSession session = DsfSession.getSession(sessionId);
+	        session.getExecutor().execute(query);
+	        try {
+	        	FormattedValueDMData data = query.get();
+	        	if (data != null)
+	        		return data.getFormattedValue();
+	        } catch (Exception e) {
+	        }
+		} finally {
+			dsfServicesTracker.dispose();
+		}
         return null;
 	}
 
