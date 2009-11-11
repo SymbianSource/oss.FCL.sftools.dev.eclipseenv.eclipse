@@ -31,6 +31,8 @@ import org.eclipse.debug.core.model.LineBreakpoint;
  */
 public class PDALineBreakpoint extends LineBreakpoint {
 	
+	public static final String INSTALLED = "INSTALLED";
+	
 	/**
 	 * Default constructor is required for the breakpoint manager
 	 * to re-create persisted breakpoints. After instantiating a breakpoint,
@@ -78,6 +80,14 @@ public class PDALineBreakpoint extends LineBreakpoint {
 	 */
 	public boolean isRunToLineBreakpoint() {
 		return false;
+	}
+	
+	public void setInstalled(boolean installed) throws CoreException {
+		setAttribute(INSTALLED, installed);
+	}
+    
+	public boolean getInstalled() throws CoreException {
+		return ensureMarker().getAttribute(INSTALLED, false);
 	}
     
 }
