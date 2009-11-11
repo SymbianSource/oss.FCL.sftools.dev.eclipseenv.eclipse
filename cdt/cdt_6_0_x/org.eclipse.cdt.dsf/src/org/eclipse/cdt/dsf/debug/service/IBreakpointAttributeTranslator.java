@@ -33,13 +33,17 @@ public interface IBreakpointAttributeTranslator {
     
     public List<Map<String, Object>> getBreakpointAttributes(IBreakpoint breakpoint, boolean bpManagerEnabled)  throws CoreException;
     
+    /**
+     * Whether DSF client can handle the given attribute change itself. If not, DSF will 
+     * try to reinstall the breakpoint to apply the change.
+     *  
+     * @param bp - can be null.
+     * @param delta
+     * @return
+     */
     public boolean canUpdateAttributes(IBreakpointDMContext bp, Map<String, Object> delta);
 
     public boolean supportsBreakpoint(IBreakpoint bp);
 
-    enum EBreakpointStatusChange {
-    	EInstalled, EUninstalled, EModified
-    }
-    
-    public void updateBreakpointStatus(IBreakpoint bp, EBreakpointStatusChange change);
+    public void updateBreakpointStatus(IBreakpoint bp);
 }
