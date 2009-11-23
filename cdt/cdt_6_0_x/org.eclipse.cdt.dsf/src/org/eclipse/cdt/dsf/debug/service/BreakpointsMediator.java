@@ -7,13 +7,14 @@
  *
  * Contributors:
  *     Wind River - Initial API and implementation
- *     Ericsson   - Low-level breakpoints integration  
+ *     Ericsson   - Low-level breakpoints integration
+ *     Nokia - refactored to work for both GDB and EDC.  Nov. 2009.
  *******************************************************************************/
 
 package org.eclipse.cdt.dsf.debug.service;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -27,7 +28,6 @@ import org.eclipse.cdt.dsf.concurrent.CountingRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.DataRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.DsfRunnable;
 import org.eclipse.cdt.dsf.concurrent.IDsfStatusConstants;
-import org.eclipse.cdt.dsf.concurrent.ImmediateExecutor;
 import org.eclipse.cdt.dsf.concurrent.RequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.ThreadSafe;
 import org.eclipse.cdt.dsf.datamodel.IDMContext;
@@ -50,7 +50,9 @@ import org.eclipse.debug.core.model.IBreakpoint;
 import org.osgi.framework.BundleContext;
 
 /**
- * 
+ * see these bugs for design of this service.<br>
+ * - https://bugs.eclipse.org/bugs/show_bug.cgi?id=218557
+ * - https://bugs.eclipse.org/bugs/show_bug.cgi?id=292468
  */
 public class BreakpointsMediator extends AbstractDsfService implements IBreakpointManagerListener, IBreakpointsListener
 {
@@ -72,7 +74,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
     /**
      * DSF Debug service for creating breakpoints.
      */
-    IBreakpoints fBreakpoints;
+    IBreakpoints fBreakpointsService;
     
     /**
      * Platform breakpoint manager
@@ -108,7 +110,6 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
     private static class TargetBP implements ITargetBreakpointInfo {
     	
     	private Map<String, Object> fAttributes;
-    	private Map<String, Object> fAttributesDelta; // not really useful ?
     	private IBreakpointDMContext fTargetBPContext;
     	private IStatus fStatus;
     	
@@ -137,7 +138,21 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		}
     }
     
-    ///////////////////////////////////////////////////////////////////////////
+	private class PlatformBreakpointInfo {
+		IBreakpoint 		breakpoint;
+		boolean 			enabled;
+		// All attributes available from UI, including standard and extended ones.
+		Map<String, Object>	attributes;
+		
+		public PlatformBreakpointInfo(IBreakpoint bp, boolean enabled, Map<String, Object> attributes) {
+			super();
+			breakpoint = bp;
+			this.enabled = enabled;
+			this.attributes = attributes;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
     // Breakpoints tracking
     ///////////////////////////////////////////////////////////////////////////
 
@@ -153,6 +168,43 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 	private Map<IBreakpointsTargetDMContext, Map<IBreakpoint, List<TargetBP>>> fPlatformBPs = 
 		new HashMap<IBreakpointsTargetDMContext, Map<IBreakpoint, List<TargetBP>>>();
 
+	/**
+	 * Holds platform breakpoints with all their attributes (standard ones and
+	 * extended ones) from UI. This will be used to check what attributes have
+	 * changed for a breakpoint when the breakpoint is changed. The map is <br>
+	 * 1. augmented in doBreakpointsAdded(); <br>
+	 * 2. updated in breakpointsChanged(); <br>
+	 * 3. diminished in breakpointsRemoved();
+	 */
+	private Map<IBreakpoint, Map<String, Object>> fBreakpointAttributes = 
+		new HashMap<IBreakpoint, Map<String, Object>>();
+	
+	private static class PendingEventInfo {
+		PendingEventInfo(BreakpointEventType eventType, PlatformBreakpointInfo bpInfo,
+				Collection<IBreakpointsTargetDMContext> bpsTargetDmc, RequestMonitor rm) {
+			fEventType = eventType;
+			fBPInfo = bpInfo;
+			fBPTargetContexts = bpsTargetDmc;
+			fRequestMonitor = rm;
+			fAttributeDelta = null;
+		}
+		
+		public PendingEventInfo(BreakpointEventType eventType, Collection<IBreakpointsTargetDMContext> updateContexts,
+				Map<String, Object> attrDelta) {
+			fEventType = eventType;
+			fBPTargetContexts = updateContexts;
+			fAttributeDelta = attrDelta;
+			fRequestMonitor = null;
+			fBPInfo = null;
+		}
+
+		PlatformBreakpointInfo fBPInfo;
+		RequestMonitor fRequestMonitor;
+		BreakpointEventType fEventType;
+		Collection<IBreakpointsTargetDMContext> fBPTargetContexts;
+		Map<String, Object>	fAttributeDelta;	// for change event only
+	}
+	
     /**
      * Due to the very asynchronous nature of DSF, a new breakpoint request can
      * pop up at any time before an ongoing one is completed. The following set
@@ -160,23 +212,8 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
      */
 	private Set<IBreakpoint> fRunningEvents    = new HashSet<IBreakpoint>();
 
-	private static class PendingEventInfo {
-		PendingEventInfo(BreakpointEventType eventType, IBreakpointsTargetDMContext bpsTargetDmc, RequestMonitor rm) {
-			fEventType = eventType;
-			fBPsTargetDmc = bpsTargetDmc;
-			fRequestMonitor = rm;
-		}
-		
-		RequestMonitor fRequestMonitor;
-		BreakpointEventType fEventType;
-		IBreakpointsTargetDMContext fBPsTargetDmc;
-	}
-	
-	/**
-	 * @see fPendingRequests
-	 */
 	private Map<IBreakpoint, LinkedList<PendingEventInfo>> fPendingEvents = 
-		Collections.synchronizedMap(new HashMap<IBreakpoint, LinkedList<PendingEventInfo>>());
+			new HashMap<IBreakpoint, LinkedList<PendingEventInfo>>();
 	
     ///////////////////////////////////////////////////////////////////////////
     // AbstractDsfService    
@@ -219,7 +256,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
     private void doInitialize(RequestMonitor rm) {
     	
     	// Get the services references
-        fBreakpoints  = getServicesTracker().getService(IBreakpoints.class);
+        fBreakpointsService  = getServicesTracker().getService(IBreakpoints.class);
         fBreakpointManager = DebugPlugin.getDefault().getBreakpointManager();
         fAttributeTranslator.initialize(this);
 
@@ -328,12 +365,15 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 
     	// Remove the breakpoints for given DMC from the internal maps.
         Map<IBreakpoint, List<TargetBP>> platformBPs = fPlatformBPs.get(dmc);
-        if (platformBPs == null) {
-            rm.setStatus(new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, INTERNAL_ERROR, "Breakpoints not installed for given context", null)); //$NON-NLS-1$
+        if (platformBPs == null || platformBPs.size() == 0) {
+            rm.setStatus(new Status(IStatus.INFO /* NOT error */, DsfPlugin.PLUGIN_ID, INTERNAL_ERROR, "Breakpoints not installed for given context", null)); //$NON-NLS-1$
             rm.done();
             return;
         }
-
+        
+        // Just remove the IBreakpoints installed for the "dmc".
+        final IBreakpoint[] bps = platformBPs.keySet().toArray(new IBreakpoint[platformBPs.size()]);
+        
 		new Job("Uninstall target breakpoints list.") { //$NON-NLS-1$
             { setSystem(true); }
 
@@ -341,7 +381,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 			// and install them on the target
         	@Override
             protected IStatus run(IProgressMonitor monitor) {
-        		doBreakpointsRemoved(DebugPlugin.getDefault().getBreakpointManager().getBreakpoints(), dmc, rm);
+        		doBreakpointsRemoved(bps, dmc, rm);
                 return Status.OK_STATUS;
             }
         }.schedule();    
@@ -356,6 +396,8 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
      * @return array of target breakpoints. 
      */
     public ITargetBreakpointInfo[] getTargetBreakpoints(IBreakpointsTargetDMContext dmc, IBreakpoint platformBp) {
+    	assert getExecutor().isInExecutorThread();
+    	
         Map<IBreakpoint, List<TargetBP>> platformBPs = fPlatformBPs.get(dmc);
 
         if (platformBPs != null)
@@ -376,6 +418,8 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
      * @return platform breakpoint. null if not found. 
      */
     public IBreakpoint getPlatformBreakpoint(IBreakpointsTargetDMContext dmc, IBreakpointDMContext bp) {
+    	assert getExecutor().isInExecutorThread();
+
     	for (IBreakpointsTargetDMContext bpContext : fPlatformBPs.keySet()) {
     		if (dmc != null && !dmc.equals(bpContext))
     			continue;
@@ -448,7 +492,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		// Install the back-end breakpoint(s)
 		for (int _i = 0; _i < attrsList.size(); _i++) {
 			final int i = _i;
-            fBreakpoints.insertBreakpoint(
+            fBreakpointsService.insertBreakpoint(
                 dmc, attrsList.get(i), 
 				new DataRequestMonitor<IBreakpointDMContext>(getExecutor(), installRM) {
 				@Override
@@ -508,16 +552,14 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
         for (int i = 0; i < bpList.size(); i++) {
         	final TargetBP bp = bpList.get(i);
         	if (bp.getTargetBreakpoint() != null) {
-        		fBreakpoints.removeBreakpoint(
+        		fBreakpointsService.removeBreakpoint(
         				bp.getTargetBreakpoint(), 
         				new RequestMonitor(getExecutor(), countingRm) {
         					@Override
         					protected void handleCompleted() {
         				        bp.setStatus(getStatus());
-        				        bp.fAttributesDelta = bp.fAttributes;
         				        if (isSuccess()) {
             						bp.setTargetBreakpoint(null);
-        				        	bp.fAttributes = null;
         				        } 
         				        countingRm.done();
         					}
@@ -530,225 +572,12 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
         countingRm.setDoneCount(count);
     }
 	
-	/**
-	 * Modify an individual breakpoint
-	 * 
-	 * @param context
-	 * @param breakpoint
-	 * @param attributes
-	 * @param drm
-	 * @throws CoreException
-	 */
-	private void modifyBreakpoint(final IBreakpointsTargetDMContext context, final IBreakpoint breakpoint,
-			final List<Map<String, Object>> newAttrsList, final DataRequestMonitor<List<TargetBP>> drm)
-	{
-	    // This method uses several lists to track the changed breakpoints:
-	    // commonAttrsList - attributes which have not changed 
-	    // oldAttrsList - attributes for the breakpoint before the change
-	    // newAttrsList - attributes for the breakpoint after the change
-	    // oldBpContexts - target-side breakpoints from before the change
-	    // newBpContexts - target-side breakpoints after the change
-	    // attrDeltasList - changes in the attributes for each attribute map in 
-	    //     oldAttrsList and newAttrsList
-	    
-    	// Get the maps
-        final Map<IBreakpoint, List<TargetBP>> platformBPs = fPlatformBPs.get(context);
-        if (platformBPs == null) {
-            drm.setStatus(new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, INVALID_HANDLE, "Invalid context", null)); //$NON-NLS-1$
-            drm.done();
-            return;
-        }
-
-        final List<TargetBP> oldBpList = platformBPs.get(breakpoint);
-        
-        final List<TargetBP> bpList = new ArrayList<TargetBP>(newAttrsList.size());
-        
-        if (oldBpList == null || oldBpList.size() == 0) { // not targetBP installed
-            drm.setData(bpList);
-        	drm.done();
-        	return;
-        }
-        
-        for (int i = 0; i < newAttrsList.size(); i++) {
-        	bpList.add(new TargetBP(newAttrsList.get(i)));
-        }
-        
-        // Create a list of attribute changes.  The length of this list will
-        // always be max(oldAttrList.size(), newAttrsList.size()), padded with
-        // null's if oldAttrsList was longer.
-        calcBPsAttrs(oldBpList, bpList);
-        
-        // Create the request monitor that will be called when all
-        // modifying/inserting/removing is complete.
-        final CountingRequestMonitor countingRM = new CountingRequestMonitor(getExecutor(), drm) {
-            @Override
-            protected void handleCompleted() {
-                // Save the new list of target breakpoints 
-            	platformBPs.put(breakpoint, bpList);
-                drm.setData(bpList);
-                drm.done();
-            }
-        };
-        
-        // Set the count, if could be zero if no breakpoints have actually changed.
-        int coutingRmCount = 0;
-        
-        // Process the changed breakpoints.
-        for (int _i = 0; _i < bpList.size(); _i++) {
-        	final int i = _i;
-        	final TargetBP bp = bpList.get(i);
-            if (bp.fAttributes == null) {
-                // The list of new attribute maps was shorter than the old.
-                // Remove the corresponding target-side bp.  
-            	// Note the target BP context may be null if the target
-            	// BP failed to insert in the first place.
-            	if (bp.getTargetBreakpoint() != null) {
-            		fBreakpoints.removeBreakpoint(
-            				bp.getTargetBreakpoint(), 
-            				new RequestMonitor(getExecutor(), countingRM) {
-            					@Override
-            					protected void handleCompleted() {
-            						bp.fStatus = getStatus();
-            						countingRM.done();
-            					}
-            				});
-                    coutingRmCount++;
-            	}
-            } else if ( bp.getTargetBreakpoint() == null) {
-                // The list of new attribute maps was longer, just insert
-                // the new breakpoint
-                final Map<String, Object> attrs = newAttrsList.get(i);
-                fBreakpoints.insertBreakpoint(
-                    context, attrs, 
-                    new DataRequestMonitor<IBreakpointDMContext>(getExecutor(), countingRM) {
-                        @Override
-                        protected void handleCompleted() {
-                        	if (isSuccess()) {
-                        		bp.fTargetBPContext = getData();
-                        	}
-                        	bp.fStatus = getStatus();
-                            countingRM.done();
-                        }
-                    });
-                coutingRmCount++;
-            } else if (bp.fAttributesDelta.size() == 0) { 
-            	// Breakpoint attributes have not changed, only copy over the old status.
-            	bp.fStatus = oldBpList.get(i).fStatus;
-            } else if ( !fAttributeTranslator.canUpdateAttributes(bp.getTargetBreakpoint(), bp.fAttributesDelta) ) {
-                // The attribute translator tells us that the debugger cannot modify the 
-                // breakpoint to change the given attributes.  Remove the breakpoint
-                // and insert a new one.
-                RequestMonitor removeRm = new RequestMonitor(getExecutor(), countingRM) {
-                    @Override
-                    protected void handleCompleted() {
-                    	if (isSuccess()) {
-                    		bp.fTargetBPContext = null;
-	                        fBreakpoints.insertBreakpoint(
-	                            context, newAttrsList.get(i),
-	                            new DataRequestMonitor<IBreakpointDMContext>(getExecutor(), countingRM) {
-	                                @Override
-	                                protected void handleCompleted() {
-	                                    if (isSuccess()) {
-	                                        bp.fTargetBPContext = getData();
-	                                    } 
-	                                    bp.fStatus = getStatus();
-	                                    countingRM.done();
-	                                }
-	                            });
-                    	} else {
-                    		// Failed to remove old breakpoint, do not proceed to insert a new one
-                    		// just save the error from target with the old context.
-                            bp.fStatus = getStatus();
-                            countingRM.done();
-                    	}
-                    }
-                };
-
-            	fBreakpoints.removeBreakpoint(bp.getTargetBreakpoint(), removeRm);
-                coutingRmCount++;
-            } else {
-                // The back end can modify the breakpoint.  Update the breakpoint with the 
-                // new attributes.
-                fBreakpoints.updateBreakpoint(
-                    bp.getTargetBreakpoint(), bp.fAttributes, 
-                    new RequestMonitor(getExecutor(), countingRM) {
-                        @Override
-                        protected void handleCompleted() {
-                            bp.fStatus = getStatus();
-                            countingRM.done();
-                        }
-                    });
-                coutingRmCount++;
-            }
-        }
-        countingRM.setDoneCount(coutingRmCount);
-	} 
-	
-	/**
-	 * Determine the set of modified attributes
-	 * 
-	 * @param oldAttributes
-	 * @param newAttributes
-	 * @return
-	 */
-	private void calcBPsAttrs(List<TargetBP> oldBpList, List<TargetBP> bpList) {
-	    // Go through the bp attributes common to the old and the new lists and calculate
-	    // their deltas.
-		int i = 0;
-	    for (i = 0; i < oldBpList.size() && i < bpList.size(); i++) {
-    		TargetBP newBp = bpList.get(i);
-    		TargetBP oldBp = oldBpList.get(i);
-    		newBp.fTargetBPContext = oldBp.getTargetBreakpoint();
-	        Map<String, Object> oldAttributes = oldBp.fAttributes; 
-	        Map<String, Object> newAttributes = newBp.fAttributes;
-    	    
-	        if (oldAttributes == null) {
-	        	// Reached a point in the old BP list where breakpoints were 
-	        	// removed.  Break out of the loop.
-	        	break;
-	        }
-	        
-    		bpList.get(i).fAttributesDelta = getAttributesDelta(oldAttributes, newAttributes);
-	    } 
-	    
-	    // Add all the new attributes as deltas
-	    for (; i < bpList.size(); i++) {
-	    	TargetBP newBP = bpList.get(i); 
-	        newBP.fAttributesDelta =  newBP.fAttributes;
-	    }
-	    
-	    // For breakpoints that were removed create TargetBP entry with a 
-	    // null set of attributes
-	    for (; i < oldBpList.size(); i++) {
-	    	TargetBP oldBp = oldBpList.get(i);
-	    	if (oldBp.fAttributes == null) {
-	    		// Guard against old removed breakpoints
-	    		break;
-	    	}
-	    	TargetBP newBp = new TargetBP(null);
-	    	newBp.fTargetBPContext = oldBp.getTargetBreakpoint();
-	    	newBp.fAttributesDelta = oldBpList.get(i).fAttributes;
-	    	bpList.add(newBp);
-	    }	    
-	}
-
     ///////////////////////////////////////////////////////////////////////////
     // IBreakpointManagerListener implementation
     ///////////////////////////////////////////////////////////////////////////
 
 	public void breakpointManagerEnablementChanged(boolean enabled) {
-		Map<String, Object> platformAttrDelta = new HashMap<String, Object>(1);
-		platformAttrDelta.put(IBreakpoint.ENABLED, enabled);
-		
-		Map<IBreakpoint, Map<String, Object>> bp2DeltaMap = new HashMap<IBreakpoint, Map<String, Object>>(); 
-		for (IBreakpoint bp : fBreakpointManager.getBreakpoints()) {
-			if (! fAttributeTranslator.supportsBreakpoint(bp))
-				continue;
-
-			bp2DeltaMap.put(bp, platformAttrDelta);
-		}
-		
-		doBreakpointsChanged(bp2DeltaMap);
+		// do nothing. breakpointsChanged() will be called to handle the change.
 	}
 
 	@ThreadSafe
@@ -756,141 +585,30 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		doBreakpointsAdded(bps, null, null);
 	}
 	
-	@SuppressWarnings("unchecked")
-	private void doBreakpointsAdded(final IBreakpoint[] bps, final IBreakpointsTargetDMContext bpsTargetDmc, final RequestMonitor rm) {
-		final List<IBreakpoint> bpCandidates = new ArrayList<IBreakpoint>(bps.length);
-		
-		for (int i = 0; i < bps.length; i++) {
-			IBreakpoint bp = bps[i];
-			
-			if (fAttributeTranslator.supportsBreakpoint(bp)) {
-				try {
-					if (fAttributeTranslator2 != null) {
-						if (bp.getMarker() == null)
-							continue;
-						
-						// if the breakpoint is not enabled, ask translator2 if it can set (and manage)
-						// disabled breakpoint itself. If not, just bail out.
-						//
-						Map<String, Object> platformAttrs = bp.getMarker().getAttributes();
-						
-						if (! (Boolean)platformAttrs.get(IBreakpoint.ENABLED) || ! fBreakpointManager.isEnabled()) {
-							Map<String, Object> platformAttr = new HashMap<String, Object>(1);
-							platformAttr.put(IBreakpoint.ENABLED, Boolean.FALSE);
-							Map<String, Object> targetAttr = fAttributeTranslator2.convertAttributeDelta(platformAttr);
-							if (! fAttributeTranslator2.canUpdateAttributes(null, targetAttr)) {
-								// bail out.
-								continue;
-							}
-						}
-					}
-					
-					bpCandidates.add(bp);
-				} catch (CoreException e) {
-					DsfPlugin.getDefault().getLog().log(e.getStatus());
-				}
-			}
-		}
+	protected void doBreakpointsAdded(final IBreakpoint[] bps, final IBreakpointsTargetDMContext bpsTargetDmc, final RequestMonitor rm) {
+		// Collect attributes (which will access system resource)
+		// in non DSF dispatch thread.
+		//
+		final PlatformBreakpointInfo[] bpsInfo = collectBreakpointsInfo(bps);
 		
 		// Nothing to do
-		if (bpCandidates.isEmpty()) {
+		if (bpsInfo.length == 0) {
 			if (rm != null) {
 				rm.done();
 			}
 			return;
 		}
-				
+
 		try {
             getExecutor().execute(new DsfRunnable() {
 				public void run() {
-					final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
-						new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpCandidates.size(), 1);
-					
-	                CountingRequestMonitor processPendingCountingRm = new CountingRequestMonitor(getExecutor(), rm) {
-		                    @Override
-		                    protected void handleCompleted() {
-		                    	processPendingRequests();
-		                    	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.ADDED);
-		                        super.handleCompleted();
-		                    }
-		                };	            	
-	                int processPendingCountingRmCount = 0;
-	            	
-	            	for (final IBreakpoint breakpoint : bpCandidates) {
-	            		final Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]> targetBPs = 
-	            			new HashMap<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>(fPlatformBPs.size(), 1);
-	            		eventBPs.put(breakpoint, targetBPs);	
-	            			
-						if (fRunningEvents.contains(breakpoint)) {
-							PendingEventInfo pendingEvent = new PendingEventInfo(BreakpointEventType.ADDED, bpsTargetDmc, processPendingCountingRm);
-							processPendingCountingRmCount++;
-							updatePendingRequest(breakpoint, pendingEvent);
-							continue;
-						}
-		                // Mark the breakpoint as being updated and go
-		                fRunningEvents.add(breakpoint);
+					Collection<IBreakpointsTargetDMContext> dmcs = new ArrayList<IBreakpointsTargetDMContext>();
+					if (bpsTargetDmc == null)
+						dmcs.addAll(fPlatformBPs.keySet());
+					else
+						dmcs.add(bpsTargetDmc);
 
-	            		final CountingRequestMonitor bpTargetsCountingRm = new CountingRequestMonitor(getExecutor(), processPendingCountingRm) {
-								@Override
-								protected void handleCompleted() {
-			                    	// Indicate that the running event has completed
-			                    	fRunningEvents.remove(breakpoint);
-			                    	super.handleCompleted();
-								}
-							};
-						int bpTargetsCountingRmCount = 0;
-						processPendingCountingRmCount++;
-	
-						
-						// Install the breakpoint in all the execution contexts
-						for (final IBreakpointsTargetDMContext dmc : fPlatformBPs.keySet()) {
-							if (bpsTargetDmc != null && !bpsTargetDmc.equals(dmc)) {
-								continue;
-							}
-							
-			                // Now ask lower level to set the bp.
-							//
-							if (fAttributeTranslator2 != null) {
-								fAttributeTranslator2.getTargetBreakpointAttributes(dmc, breakpoint, fBreakpointManager.isEnabled(),
-										new DataRequestMonitor<List<Map<String,Object>>>(getExecutor(), bpTargetsCountingRm){
-											@Override
-											protected void handleSuccess() {
-												installBreakpoint(
-											    		dmc, breakpoint, getData(), 
-											    		new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetsCountingRm) {
-											    			@Override
-															protected void handleSuccess() {
-											    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
-											    				super.handleSuccess();
-											    			};
-											    		});
-											}});
-							}
-							else {	// Old way
-								List<Map<String, Object>> attrsArray;
-								try {
-									attrsArray = fAttributeTranslator.getBreakpointAttributes(breakpoint, fBreakpointManager.isEnabled());
-								} catch (CoreException e) {
-									attrsArray = new ArrayList<Map<String, Object>>();
-									DsfPlugin.getDefault().getLog().log(e.getStatus());
-								}
-				        		
-								installBreakpoint(
-						    		dmc, breakpoint, attrsArray, 
-						    		new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetsCountingRm) {
-						    			@Override
-										protected void handleSuccess() {
-						    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
-						    				super.handleSuccess();
-						    			};
-						    		});
-							}
-							
-							bpTargetsCountingRmCount++;
-						}
-						bpTargetsCountingRm.setDoneCount(bpTargetsCountingRmCount);
-	            	}
-	            	processPendingCountingRm.setDoneCount(processPendingCountingRmCount);	            	
+					doBreakpointsAddedInExecutor(bpsInfo, dmcs, rm);
 				}
 			});
 		} catch (RejectedExecutionException e) {
@@ -904,191 +622,278 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		}
 	}
 	
-    ///////////////////////////////////////////////////////////////////////////
-    // IBreakpointListener implementation
-    ///////////////////////////////////////////////////////////////////////////
-
-	@SuppressWarnings("unchecked")
-	public void breakpointsChanged(IBreakpoint[] bps, IMarkerDelta[] deltas) {
-		Map<IBreakpoint, Map<String, Object>> bp2DeltaMap = new HashMap<IBreakpoint, Map<String, Object>>(); 
-		for (int i = 0; i < bps.length; i++) {
-			IBreakpoint bp = bps[i];
-			
-			if (deltas[i] == null)
-				continue;
-			
+	/**
+	 * Collect breakpoint info. This method must not be called in DSF dispatch thread.
+	 * @param bps
+	 * @return
+	 */
+    private PlatformBreakpointInfo[] collectBreakpointsInfo(IBreakpoint[] bps) {
+		List<PlatformBreakpointInfo> bpsInfo = new ArrayList<PlatformBreakpointInfo>(bps.length);
+		
+		for (IBreakpoint bp : bps) {
 			if (bp.getMarker() == null)
 				continue;
 			
-			if (! fAttributeTranslator.supportsBreakpoint(bp))
-				continue;
-
-			try {
-				Map<String, Object> oldAttrs = deltas[i].getAttributes();
-				Map<String, Object> newAttrs = bp.getMarker().getAttributes();
-				
-				Map<String, Object> platformAttrDelta = getAttributesDelta(oldAttrs, newAttrs);
-				
-				if (platformAttrDelta.size() == 0) // no change. possible when user cancels breakpoint properties dialog.
-					continue;
-
-				bp2DeltaMap.put(bp, platformAttrDelta);
-			} catch (CoreException e) {
-				DsfPlugin.getDefault().getLog().log(e.getStatus());
+			if (fAttributeTranslator.supportsBreakpoint(bp)) {
+				try {
+	        		Map<String, Object> attrs = fAttributeTranslator2.getAllBreakpointAttributes(bp, fBreakpointManager.isEnabled());
+	        		boolean enabled = bp.isEnabled() && fBreakpointManager.isEnabled();
+					bpsInfo.add(new PlatformBreakpointInfo(bp, enabled, attrs));
+				} catch (CoreException e) {
+					DsfPlugin.getDefault().getLog().log(e.getStatus());
+				}
 			}
 		}
 		
-		doBreakpointsChanged(bp2DeltaMap);
+		return bpsInfo.toArray(new PlatformBreakpointInfo[bpsInfo.size()]);
 	}
-	
-	/**
-	 * 
-	 * @param bp2DeltaMap - pairs of (breakpoint, attrDelta), where attrDelta contains changed 
-	 * and new attributes for the breakpoint.  
-	 */
-	private void doBreakpointsChanged(Map<IBreakpoint, Map<String, Object>> bp2DeltaMap) {
 
-		final Map<IBreakpoint, List<Map<String, Object>>> bpsAttrs = 
-			new HashMap<IBreakpoint, List<Map<String, Object>>>(bp2DeltaMap.size() * 4/3);
-
-		for (IBreakpoint bp : bp2DeltaMap.keySet()) {
-			try {
-				Map<String, Object> platformAttrDelta = bp2DeltaMap.get(bp);
-				
-				if (fAttributeTranslator2 != null) {
-					Map<String, Object> targetAttrDelta = fAttributeTranslator2.convertAttributeDelta(platformAttrDelta);
+	protected void doBreakpointsAddedInExecutor(PlatformBreakpointInfo[] bpsInfo, Collection<IBreakpointsTargetDMContext> bpTargetDMCs, RequestMonitor rm) {
+		final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
+			new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpsInfo.length, 1);
 		
-					if (! fAttributeTranslator2.canUpdateAttributes(null, targetAttrDelta)) {
-						// DSF client cannot handle at least one of the attribute change, just remove
-						// old target BPs and install new ones.
-						final IBreakpoint[] platformBPs = new IBreakpoint[] {bp};
-						
-						if (platformAttrDelta.containsKey(IBreakpoint.ENABLED)) {
-							if ((Boolean)platformAttrDelta.get(IBreakpoint.ENABLED))
-								// platform BP changed from disabled to enabled
-								doBreakpointsAdded(platformBPs, null, null);
-							else
-								doBreakpointsRemoved(platformBPs, null, null);
-						}
-						else {
-							// other attribute change, remove old and install new.
-							doBreakpointsRemoved(platformBPs, null, new RequestMonitor(getExecutor(), null) {
-								@Override
-								protected void handleSuccess() {
-									doBreakpointsAdded(platformBPs, null, null);
-								}});
-						}
-					}
-					else 
-						updateBreakpoint(bp, targetAttrDelta);
-				}
-				else { // old way
-					
-	                // Retrieve the breakpoint attributes
-	        		List<Map<String, Object>> attrsArray = 
-	        		    fAttributeTranslator.getBreakpointAttributes(bp, fBreakpointManager.isEnabled());
-	        		
-	        		bpsAttrs.put(bp, attrsArray);
-				}
-			} catch (CoreException e) {
-				DsfPlugin.getDefault().getLog().log(e.getStatus());
+        CountingRequestMonitor processPendingCountingRm = new CountingRequestMonitor(getExecutor(), rm) {
+                @Override
+                protected void handleCompleted() {
+                	processPendingRequests();
+                	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.ADDED);
+                    super.handleCompleted();
+                }
+            };	            	
+        int processPendingCountingRmCount = 0;
+    	
+    	for (final PlatformBreakpointInfo bpinfo : bpsInfo) {
+    		final Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]> targetBPs = 
+    			new HashMap<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>(fPlatformBPs.size(), 1);
+    		eventBPs.put(bpinfo.breakpoint, targetBPs);	
+    	
+			// Remember the new attributes of the bp in our global buffer,
+			// even if we cannot or fail to install the bp.
+			fBreakpointAttributes.put(bpinfo.breakpoint, bpinfo.attributes);
+    		
+			if (fRunningEvents.contains(bpinfo.breakpoint)) {
+				PendingEventInfo pendingEvent = new PendingEventInfo(BreakpointEventType.ADDED, bpinfo, bpTargetDMCs, processPendingCountingRm);
+				processPendingCountingRmCount++;
+				updatePendingRequest(bpinfo.breakpoint, pendingEvent);
+				continue;
 			}
-		}
+			
+			processPendingCountingRmCount++;
+
+            // Mark the breakpoint as being updated and go
+            fRunningEvents.add(bpinfo.breakpoint);
+
+    		final CountingRequestMonitor bpTargetsCountingRm = new CountingRequestMonitor(getExecutor(), processPendingCountingRm) {
+				@Override
+				protected void handleCompleted() {
+                	// Indicate that the running event has completed
+                	fRunningEvents.remove(bpinfo.breakpoint);
+                	super.handleCompleted();
+				}
+    		};
+
+			int bpTargetsCountingRmCount = 0;
+
+			// Install the breakpoint in all the execution contexts
+			for (final IBreakpointsTargetDMContext dmc : bpTargetDMCs) {
+				
+                // Now ask lower level to set the bp.
+				//
+				// if the breakpoint is disabled, ask back-end if it can set (and manage)
+				// disabled breakpoint. If not, just bail out.
+				//
+				if (! bpinfo.enabled) {
+					Map<String, Object> attr = new HashMap<String, Object>(1);
+					attr.put(IBreakpoint.ENABLED, Boolean.FALSE);
+					Map<String, Object> targetEnablementAttr = fAttributeTranslator2.convertAttributes(attr);
+					if (! fAttributeTranslator2.canUpdateAttributes(bpinfo.breakpoint, dmc, targetEnablementAttr)) {
+						// bail out. Continue with the next dmc & breakpoint.
+						continue;
+					}
+				}
+            	
+				// Now do the real work.
+				//
+				fAttributeTranslator2.resolveBreakpoint(dmc, bpinfo.breakpoint, bpinfo.attributes,
+						new DataRequestMonitor<List<Map<String,Object>>>(getExecutor(), bpTargetsCountingRm){
+							@Override
+							protected void handleSuccess() {
+								installBreakpoint(
+							    		dmc, bpinfo.breakpoint, getData(), 
+							    		new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetsCountingRm) {
+							    			@Override
+											protected void handleSuccess() {
+							    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
+							    				super.handleSuccess();
+							    			};
+							    		});
+							}});
+				
+				bpTargetsCountingRmCount++;
+			}
+			
+			bpTargetsCountingRm.setDoneCount(bpTargetsCountingRmCount);
+    	}
+    	
+    	processPendingCountingRm.setDoneCount(processPendingCountingRmCount);	            	
+	}
+
+	/*
+	 * Note this method must not be called in DSF dispatch thread.
+	 * 
+	 * @param bps
+	 * @param deltas
+	 */
+	public void breakpointsChanged(IBreakpoint[] bps, IMarkerDelta[] deltas) {
+		if (fAttributeTranslator2 == null)
+			return;
 		
-		if (bpsAttrs.isEmpty()) return; // nothing to do
+		final PlatformBreakpointInfo[] bpsInfo = collectBreakpointsInfo(bps);
+		
+		if (bpsInfo.length == 0) 
+			return; // nothing to do
 		
 		try {
-			// Modify the breakpoint in all the target contexts
 	        getExecutor().execute( new DsfRunnable() { 
 	            public void run() {
-					final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
-						new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpsAttrs.size(), 1);
+	            	Map<String, Object> tmp = new HashMap<String, Object>(1);
+					tmp.put(IBreakpoint.ENABLED, true);
+					final String targetEnablementKey = fAttributeTranslator2.convertAttributes(tmp).keySet().iterator().next();
 
-					CountingRequestMonitor processPendingCountingRm = new CountingRequestMonitor(getExecutor(), null) {
-	                    @Override
-	                    protected void handleCompleted() {
-	                    	processPendingRequests();
-	                    	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.MODIFIED);
-	                    }
-	                };	            	
-	                int processPendingCountingRmCount = 0;
-	            	
-	            	for (final IBreakpoint breakpoint : bpsAttrs.keySet()) {
-	            		final Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]> targetBPs = 
-	            			new HashMap<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>(fPlatformBPs.size(), 1);
-	            		eventBPs.put(breakpoint, targetBPs);	
-
-	            		// If the breakpoint is currently being updated, queue the request and exit
-		            	if (fRunningEvents.contains(breakpoint)) {
-		            		updatePendingRequest(breakpoint, new PendingEventInfo(BreakpointEventType.MODIFIED, null, null));
+					for (PlatformBreakpointInfo bpinfo : bpsInfo) {
+						/*
+						 * We cannot depend on "deltas" for attribute change.
+						 * For instance, delta can be null when extended
+						 * attributes (e.g. breakpoint thread filter for GDB)
+						 * are changed.
+						 */
+						Map<String, Object> newAttrs = bpinfo.attributes;
+						Map<String, Object> oldAttrs = fBreakpointAttributes.get(bpinfo.breakpoint);
+						
+						// remember the new attributes.
+						fBreakpointAttributes.put(bpinfo.breakpoint, newAttrs);
+						
+						final Map<String, Object> attrDelta = getAttributesDelta(oldAttrs, newAttrs);
+						if (attrDelta.size() == 0) 
 							continue;
-		            	}
-		            	
-		                // Keep track of the updates
-		                CountingRequestMonitor bpTargetsCountingRm = 
-		                	new CountingRequestMonitor(getExecutor(), processPendingCountingRm) {
-			                    @Override
-			                    protected void handleCompleted() {
-			                    	// Indicate that the running event has completed
-			                    	fRunningEvents.remove(breakpoint);
-			                    	super.handleCompleted();
-			                    }
-			                };
-			            processPendingCountingRmCount++;
-		                bpTargetsCountingRm.setDoneCount(fPlatformBPs.size());
-	
-		                // Mark the breakpoint as being updated and go
-		                fRunningEvents.add(breakpoint);
-		                
-		                // Modify the breakpoint in all the execution contexts
-		                for (final IBreakpointsTargetDMContext dmc : fPlatformBPs.keySet()) {
-		                    modifyBreakpoint(
-		                    		dmc, breakpoint, bpsAttrs.get(breakpoint), 
-		                    		new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetsCountingRm) {
-						    			@Override
-										protected void handleSuccess() {
-						    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
-						    				super.handleSuccess();
-						    			};
-		                    		});
-		                }
+
+						final List<IBreakpointsTargetDMContext> reinstallContexts = new ArrayList<IBreakpointsTargetDMContext>();
+						
+						List<IBreakpointsTargetDMContext> updateContexts = new ArrayList<IBreakpointsTargetDMContext>();
+						
+						// Now change the breakpoint for each known context.
+						//
+						for (final IBreakpointsTargetDMContext btContext : fPlatformBPs.keySet()) {
+							
+							if (! fAttributeTranslator2.canUpdateAttributes(bpinfo.breakpoint, btContext, attrDelta)) {
+								// backend cannot handle at least one of the platform BP attribute change,
+								// we'll handle the re-installation.
+								reinstallContexts.add(btContext);
+							}
+							else {
+								// Backend claims it can handle the attributes change, let it do it.
+								updateContexts.add(btContext);
+							}
+							
+						}
+
+						final PlatformBreakpointInfo[] oneBPInfo = new PlatformBreakpointInfo[] {bpinfo};
+						IBreakpoint[] oneBP = new IBreakpoint[] {bpinfo.breakpoint};
+
+						if (reinstallContexts.size() > 0) {
+							// Check if it's only enablement change (user click enable/disable 
+							// button or "Skip all breakpoints" button), which is common operation.
+							//
+							if (attrDelta.size() == 1 && attrDelta.containsKey(targetEnablementKey)) { // only enablement changed.	
+								if (bpinfo.enabled)  {
+									// change from disable to enable. Install the bp.
+									doBreakpointsAddedInExecutor(oneBPInfo, reinstallContexts, null);
+								}
+								else {
+									// change from enable to disable. Remove the bp.
+									doBreakpointsRemovedInExecutor(oneBP,  reinstallContexts, null);
+								}
+							}
+							else {
+								doBreakpointsRemovedInExecutor(oneBP, reinstallContexts, new RequestMonitor(getExecutor(), null) {
+									// What should we do if removal of some or all targetBP fails ? 
+									// Go on with the installation of new targetBPs and let clients (i.e. AttributeTranslators) 
+									// handle the errors.
+									@Override
+									protected void handleCompleted() {
+										doBreakpointsAddedInExecutor(oneBPInfo, reinstallContexts, null);
+									}});
+							}
+						}
+						
+						if (updateContexts.size() > 0)
+							modifyTargetBreakpoints(bpinfo.breakpoint, updateContexts, attrDelta);
 	            	}
-	            	processPendingCountingRm.setDoneCount(processPendingCountingRmCount);
 	            }
 	        });
 	    } catch (RejectedExecutionException e) {
 			DsfPlugin.getDefault().getLog().log(new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, IDsfStatusConstants.INTERNAL_ERROR, "Request for monitor: '" + toString() + "' resulted in a rejected execution exception.", e)); //$NON-NLS-1$ //$NON-NLS-2$
 	    }
+
 	}
 
 	/**
-	 * For the given platform BP, update all its target BPs with the given attribute change.
+	 * For the given platform BP, ask the backend to modify all its target BPs
+	 * with the given attribute change. <br>
+	 * This must be called in DSF executor thread.
 	 * 
 	 * @param bp
-	 * @param targetAttrDelta - target attribute change.  
+	 * @param updateContexts 
+	 * 			  target contexts in which to do the modification.
+	 * @param targetAttrDelta
+	 *            target-recognizable attribute(s) with new values.
 	 */
-	private void updateBreakpoint(final IBreakpoint bp, final Map<String, Object> targetAttrDelta) {
-        getExecutor().execute(new DsfRunnable() {
-        	public void run() {
-				for (IBreakpointsTargetDMContext dmc : fPlatformBPs.keySet()) {
-					List<TargetBP> targetBPs = fPlatformBPs.get(dmc).get(bp);
-					if (targetBPs != null) {
-						for (TargetBP tbp : targetBPs) {
-							// this must be an installed bp.
-							assert (tbp.getTargetBreakpoint() != null);
-							
-							fBreakpoints.updateBreakpoint(tbp.getTargetBreakpoint(), targetAttrDelta, new RequestMonitor(getExecutor(), null) {});
-						}
-					}
+	private void modifyTargetBreakpoints(final IBreakpoint bp, Collection<IBreakpointsTargetDMContext> updateContexts, Map<String, Object> targetAttrDelta) {
+		// If the breakpoint is currently being updated, queue the request and exit
+    	if (fRunningEvents.contains(bp)) {
+    		PendingEventInfo pendingEvent = new PendingEventInfo(BreakpointEventType.MODIFIED, updateContexts, targetAttrDelta);
+    		updatePendingRequest(bp, pendingEvent);
+			return;
+    	}
+		
+    	CountingRequestMonitor modifyTargetBPCRM = new CountingRequestMonitor(getExecutor(), null) {
+			@Override
+			protected void handleCompleted() {
+				fRunningEvents.remove(bp);
+			}};
+			
+    	int targetBPCount = 0;
+    	
+    	fRunningEvents.add(bp);
+    	
+		for (IBreakpointsTargetDMContext context : updateContexts) {
+			List<TargetBP> targetBPs = fPlatformBPs.get(context).get(bp);
+			if (targetBPs != null) {
+				for (TargetBP tbp : targetBPs) {
+					// this must be an installed breakpoint.
+					assert (tbp.getTargetBreakpoint() != null);
+					
+					targetBPCount++;
+					fBreakpointsService.updateBreakpoint(tbp.getTargetBreakpoint(), targetAttrDelta, modifyTargetBPCRM);
 				}
-        	}});
+			}
+		}
+		
+		modifyTargetBPCRM.setDoneCount(targetBPCount);
 	}
 
 	public void breakpointsRemoved(final IBreakpoint[] bps, IMarkerDelta delta[]) {
+		getExecutor().execute(new DsfRunnable() {
+			public void run() {
+				for (IBreakpoint bp : bps)
+					fBreakpointAttributes.remove(bp);
+			}
+		});
+		
 		doBreakpointsRemoved(bps, null, null);
 	}
 	
-	public void doBreakpointsRemoved(final IBreakpoint[] bps, final IBreakpointsTargetDMContext bpsTargetDmc, final RequestMonitor rm) {
+	protected void doBreakpointsRemoved(final IBreakpoint[] bps, final IBreakpointsTargetDMContext bpsTargetDmc, final RequestMonitor rm) {
 	
 		final List<IBreakpoint> bpCandidates = new ArrayList<IBreakpoint>();
 		
@@ -1096,10 +901,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 			IBreakpoint bp = bps[i];
 			
 			if (fAttributeTranslator.supportsBreakpoint(bp)) {
-				if (bpsTargetDmc == null)
-					bpCandidates.add(bp);
-				else if (fPlatformBPs.get(bpsTargetDmc).containsKey(bp))	// target BPs are installed in the context 
-					bpCandidates.add(bp);
+				bpCandidates.add(bp);
 			}
 		}
 		
@@ -1112,72 +914,18 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		try {
 	        getExecutor().execute(new DsfRunnable() {
 	        	public void run() {
-					final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
-						new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpCandidates.size(), 1);
+					Collection<IBreakpointsTargetDMContext> contexts = new ArrayList<IBreakpointsTargetDMContext>();
+					if (bpsTargetDmc == null)
+						contexts.addAll(fPlatformBPs.keySet());
+					else
+						contexts.add(bpsTargetDmc);
 
-					CountingRequestMonitor processPendingCountingRm = new CountingRequestMonitor(getExecutor(), rm) {
-            			@Override
-            			protected void handleCompleted() {
-            				processPendingRequests();
-	                    	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.REMOVED);
-            				super.handleCompleted();
-            			}
-            		};
-            		int processPendingCountingRmCount = 0;
-            		
-					for (final IBreakpoint breakpoint : bpCandidates) {
-	            		final Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]> targetBPs = 
-	            			new HashMap<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>(fPlatformBPs.size(), 1);
-	            		eventBPs.put(breakpoint, targetBPs);	
-				
-		            	// If the breakpoint is currently being updated, queue the request and exit
-		            	if (fRunningEvents.contains(breakpoint)) {
-		            		PendingEventInfo pendingEvent = new PendingEventInfo(BreakpointEventType.REMOVED, bpsTargetDmc, processPendingCountingRm);
-            				processPendingCountingRmCount++;
-		            		updatePendingRequest(breakpoint, pendingEvent);
-							continue;
-		            	}
-		            	
-	            		CountingRequestMonitor bpTargetDmcCRM = new CountingRequestMonitor(getExecutor(), processPendingCountingRm) {
-							@Override
-							protected void handleCompleted() {
-		                    	// Indicate that the running event has completed
-		                    	fRunningEvents.remove(breakpoint);
-		                    	super.handleCompleted();
-							}
-						};
-						processPendingCountingRmCount++;
-						int bpTargetDmcCRMCount = 0;
-
-	            		// Remove the breakpoint in all the execution contexts
-	            		for (final IBreakpointsTargetDMContext dmc : fPlatformBPs.keySet()) {
-	            			if (bpsTargetDmc != null && !bpsTargetDmc.equals(dmc)) {
-	            				continue;
-	            			}
-	            			
-	            			if (fPlatformBPs.get(dmc).containsKey(breakpoint)) {		// there are targetBPs installed 
-	            				uninstallBreakpoint(
-	            						dmc, breakpoint,
-	            						new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetDmcCRM) {
-							    			@Override
-											protected void handleSuccess() {
-							    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
-							    				super.handleSuccess();
-							    			};
-	            						});
-	            				bpTargetDmcCRMCount++;
-	            			} else {
-	            				// Breakpoint not installed for given context, do nothing.
-	            			}
-	            		}
-	            		bpTargetDmcCRM.setDoneCount(bpTargetDmcCRMCount);
-					}
-					
-					processPendingCountingRm.setDoneCount(processPendingCountingRmCount);
+					doBreakpointsRemovedInExecutor(bpCandidates.toArray(new IBreakpoint[bpCandidates.size()]), contexts, rm);
 	        	}
 	        });
         } catch (RejectedExecutionException e) {
-			IStatus status = new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, IDsfStatusConstants.INTERNAL_ERROR, "Request for monitor: '" + toString() + "' resulted in a rejected execution exception.", e);//$NON-NLS-1$ //$NON-NLS-2$
+			IStatus status = new Status(IStatus.ERROR, DsfPlugin.PLUGIN_ID, IDsfStatusConstants.INTERNAL_ERROR, 
+					"Request for monitor: '" + toString() + "' resulted in a rejected execution exception.", e);//$NON-NLS-1$ //$NON-NLS-2$
 			if (rm != null) {
 				rm.setStatus(status);
 				rm.done();
@@ -1187,6 +935,79 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
         }
 	}
 	
+	protected void doBreakpointsRemovedInExecutor(IBreakpoint[] bpCandidates, 
+			Collection<IBreakpointsTargetDMContext> targetContexts, RequestMonitor rm) {
+		
+		final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
+			new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpCandidates.length, 1);
+
+		CountingRequestMonitor processPendingCountingRm = new CountingRequestMonitor(getExecutor(), rm) {
+			@Override
+			protected void handleCompleted() {
+				processPendingRequests();
+            	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.REMOVED);
+				super.handleCompleted();
+			}
+		};
+		int processPendingCountingRmCount = 0;
+		
+		for (final IBreakpoint breakpoint : bpCandidates) {
+
+			// If the breakpoint is currently being updated, queue the request and exit
+        	if (fRunningEvents.contains(breakpoint)) {
+        		PendingEventInfo pendingEvent = new PendingEventInfo(BreakpointEventType.REMOVED, null, targetContexts, processPendingCountingRm);
+                processPendingCountingRmCount++;
+        		updatePendingRequest(breakpoint, pendingEvent);
+				continue;	// handle next breakpoint
+        	}
+
+            processPendingCountingRmCount++;
+
+            final Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]> targetBPs = 
+    			new HashMap<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>(fPlatformBPs.size(), 1);
+    		eventBPs.put(breakpoint, targetBPs);	
+	
+    		CountingRequestMonitor bpTargetsCountingRM = new CountingRequestMonitor(getExecutor(), processPendingCountingRm) {
+				@Override
+				protected void handleCompleted() {
+					// Indicate that the running event has completed
+                	fRunningEvents.remove(breakpoint);
+                	super.handleCompleted();
+				}
+			};
+            
+			int bpTargetsCoutingRMCount = 0;
+
+        	// Mark the breakpoint as being updated and go
+            fRunningEvents.add(breakpoint);
+
+    		// Remove the breakpoint in all the execution contexts
+    		for (final IBreakpointsTargetDMContext dmc : targetContexts) {
+    			
+    			if (fPlatformBPs.get(dmc).containsKey(breakpoint)) {		// there are targetBPs installed 
+    				// now do time-consuming part of the work.
+    				
+    				uninstallBreakpoint(
+    						dmc, breakpoint,
+    						new DataRequestMonitor<List<TargetBP>>(getExecutor(), bpTargetsCountingRM) {
+				    			@Override
+								protected void handleSuccess() {
+				    				targetBPs.put(dmc, getData().toArray(new ITargetBreakpointInfo[getData().size()]));
+				    				super.handleSuccess();
+				    			};
+    						});
+    				bpTargetsCoutingRMCount++;
+    			} else {
+    				// Breakpoint not installed for given context, do nothing.
+    			}
+    		}
+    		
+    		bpTargetsCountingRM.setDoneCount(bpTargetsCoutingRMCount);
+		}
+		
+		processPendingCountingRm.setDoneCount(processPendingCountingRmCount);
+	}
+
 	private void updatePendingRequest(IBreakpoint breakpoint, PendingEventInfo pendingEvent) {
 		LinkedList<PendingEventInfo> pendingEventsList = fPendingEvents.get(breakpoint);
 		if (pendingEventsList == null) {
@@ -1201,91 +1022,38 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 	}
 	
 	private void processPendingRequests() {
+		/*
+		 * This will process only first pending request for each breakpoint,
+		 * whose RequestMonitor (see "processPendingCountingRm" in such methods as 
+		 * doBreakpointsRemovedInExecutor()) will invoke this method again.   
+		 */
 		if (fPendingEvents.isEmpty()) return;  // Nothing to do
 		
-		final List<PendingEventInfo> modifyBPs = new ArrayList<PendingEventInfo>(1);
-		final Map<IBreakpointsTargetDMContext, List<PendingEventInfo>> addBPs =
-			new HashMap<IBreakpointsTargetDMContext, List<PendingEventInfo>>(1);
-		final Map<IBreakpointsTargetDMContext, List<PendingEventInfo>> removeBPs =
-			new HashMap<IBreakpointsTargetDMContext, List<PendingEventInfo>>(1);
-		
-		// Make a copy to avoid java.util.ConcurrentModificationException.
+		// Make a copy to avoid ConcurrentModificationException
+		// as we are deleting element in the loop.
 		Set<IBreakpoint> bpsInPendingEvents = new HashSet<IBreakpoint>(fPendingEvents.keySet()); 
-//		for (IBreakpoint bp : fPendingEvents.keySet()) {
 		for (IBreakpoint bp : bpsInPendingEvents) {
-	    	// Process the next pending update for this breakpoint
-	    	if (!fRunningEvents.contains(bp)) {
-	    		LinkedList<PendingEventInfo> eventInfoList = fPendingEvents.get(bp);
-	    		PendingEventInfo eventInfo = eventInfoList.removeFirst();
-	    		if (eventInfoList.isEmpty()) {
-	    			fPendingEvents.remove(bp);
-	    		}
-	    		BreakpointEventType type = eventInfo.fEventType;
-	    		if (type.equals(BreakpointEventType.MODIFIED)) {
-	    			modifyBPs.add(eventInfo);
-	    		} else if (type.equals(BreakpointEventType.ADDED)){
-	    			List<PendingEventInfo> addList = addBPs.get(eventInfo.fBPsTargetDmc);
-	    			if (addList == null) {
-	    				addList = new ArrayList<PendingEventInfo>(1);
-	    				addBPs.put(eventInfo.fBPsTargetDmc, addList);
-	    			}
-	    			addList.add(eventInfo);
-	    		} else if (type.equals(BreakpointEventType.REMOVED)){
-	    			List<PendingEventInfo> removeList = removeBPs.get(eventInfo.fBPsTargetDmc);
-	    			if (removeList == null) {
-	    				removeList = new ArrayList<PendingEventInfo>(1);
-	    				removeBPs.put(eventInfo.fBPsTargetDmc, removeList);
-	    			}
-	    			removeList.add(eventInfo);
-	    		}
-	    	}
-		}
+	    	if (! fRunningEvents.contains(bp)) {
+				LinkedList<PendingEventInfo> eventInfoList = fPendingEvents.get(bp);
 
-		if (modifyBPs.size() != 0 || removeBPs.size() != 0) {
-			new Job("Deferred breakpoint changed job") { //$NON-NLS-1$
-	            { setSystem(true); }
-	            @Override
-	            protected IStatus run(IProgressMonitor monitor) {
-	            	if (modifyBPs.size() != 0) {
-	            		breakpointsChanged(modifyBPs.toArray(new IBreakpoint[modifyBPs.size()]), null);	            		
-	            	}
-	            	if (addBPs.size() != 0) {
-	            		for (Map.Entry<IBreakpointsTargetDMContext, List<PendingEventInfo>> addBPsEntry : addBPs.entrySet()) {
-	            			IBreakpointsTargetDMContext bpsTargetDmc = addBPsEntry.getKey();
-	            			final List<PendingEventInfo> addBpList = addBPsEntry.getValue();
-	            			RequestMonitor rm = new RequestMonitor(ImmediateExecutor.getInstance(), null) {
-	            				@Override
-								protected void handleCompleted() {
-	            					for (PendingEventInfo eventInfo : addBpList) {
-	            						if (eventInfo.fRequestMonitor != null) {
-	            							eventInfo.fRequestMonitor.done();
-	            						}
-	            					}
-	            				};
-	            			};
-		            		doBreakpointsAdded(addBpList.toArray(new IBreakpoint[addBpList.size()]), bpsTargetDmc, rm);	            			            			
-	            		}
-	            	} 
-	            	if (removeBPs.size() != 0) {
-	            		for (Map.Entry<IBreakpointsTargetDMContext, List<PendingEventInfo>> removeBPsEntry : removeBPs.entrySet()) {
-	            			IBreakpointsTargetDMContext bpsTargetDmc = removeBPsEntry.getKey();
-	            			final List<PendingEventInfo> removeBpList = removeBPsEntry.getValue();
-	            			RequestMonitor rm = new RequestMonitor(ImmediateExecutor.getInstance(), null) {
-	            				@Override
-								protected void handleCompleted() {
-	            					for (PendingEventInfo eventInfo : removeBpList) {
-	            						if (eventInfo.fRequestMonitor != null) {
-	            							eventInfo.fRequestMonitor.done();
-	            						}
-	            					}
-	            				};
-	            			};
-		            		doBreakpointsRemoved(removeBpList.toArray(new IBreakpoint[removeBpList.size()]), bpsTargetDmc, rm);	            			            			
-	            		}
-	            	} 
-	                return Status.OK_STATUS;
-	            };
-			}.schedule();
+		    	// Process the first pending request for this breakpoint
+		   		PendingEventInfo eventInfo = eventInfoList.removeFirst();
+	
+				if (eventInfoList.isEmpty())
+					fPendingEvents.remove(bp);
+	
+				switch (eventInfo.fEventType) {
+				case ADDED:
+					doBreakpointsAddedInExecutor(new PlatformBreakpointInfo[] {eventInfo.fBPInfo}, eventInfo.fBPTargetContexts, eventInfo.fRequestMonitor);
+					break;
+				case MODIFIED:
+					modifyTargetBreakpoints(bp, eventInfo.fBPTargetContexts, eventInfo.fAttributeDelta);
+					break;
+				case REMOVED:
+					doBreakpointsRemovedInExecutor(new IBreakpoint[]{bp}, eventInfo.fBPTargetContexts, eventInfo.fRequestMonitor);
+					break;
+				}
+	    	}
 		}
 	}
 	
@@ -1302,6 +1070,11 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
                 if (fAttributeTranslator2 != null) {
                 	fAttributeTranslator2.updateBreakpointsStatus(eventBPs, eventType);
                 }
+                else
+                	for (IBreakpoint bp : eventBPs.keySet()) {
+                		fAttributeTranslator.updateBreakpointStatus(bp);
+                	}
+                	
 
                 return Status.OK_STATUS;
             };

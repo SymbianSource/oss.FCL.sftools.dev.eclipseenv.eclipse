@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
+import org.eclipse.cdt.debug.core.CDebugCorePlugin;
+import org.eclipse.cdt.debug.core.model.ICBreakpoint;
 import org.eclipse.cdt.dsf.concurrent.CountingRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.DataRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.Immutable;
@@ -27,6 +29,8 @@ import org.eclipse.cdt.dsf.debug.service.IBreakpoints;
 import org.eclipse.cdt.dsf.debug.service.command.ICommandControl;
 import org.eclipse.cdt.dsf.debug.service.command.ICommandControlService.ICommandControlShutdownDMEvent;
 import org.eclipse.cdt.dsf.gdb.internal.GdbPlugin;
+import org.eclipse.cdt.dsf.mi.service.MIRunControl.SuspendedEvent;
+import org.eclipse.cdt.dsf.mi.service.breakpoint.actions.BreakpointActionAdapter;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakAfter;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakCondition;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakDelete;
@@ -35,7 +39,9 @@ import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakEnable;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakInsert;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakList;
 import org.eclipse.cdt.dsf.mi.service.command.commands.MIBreakWatch;
+import org.eclipse.cdt.dsf.mi.service.command.events.MIBreakpointHitEvent;
 import org.eclipse.cdt.dsf.mi.service.command.events.MIWatchpointScopeEvent;
+import org.eclipse.cdt.dsf.mi.service.command.events.MIWatchpointTriggerEvent;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIBreakInsertInfo;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIBreakListInfo;
 import org.eclipse.cdt.dsf.mi.service.command.output.MIBreakpoint;
@@ -43,8 +49,11 @@ import org.eclipse.cdt.dsf.mi.service.command.output.MIInfo;
 import org.eclipse.cdt.dsf.service.AbstractDsfService;
 import org.eclipse.cdt.dsf.service.DsfServiceEventHandler;
 import org.eclipse.cdt.dsf.service.DsfSession;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.osgi.framework.BundleContext;
 
 /**
@@ -281,6 +290,53 @@ public class MIBreakpoints extends AbstractDsfService implements IBreakpoints
     public void eventDispatched(ICommandControlShutdownDMEvent e) {
     }
 
+	@DsfServiceEventHandler 
+    public void eventDispatched(SuspendedEvent e) {
+
+		if (e.getMIEvent() instanceof MIBreakpointHitEvent) {
+			MIBreakpointHitEvent evt = (MIBreakpointHitEvent) e.getMIEvent();
+	        performBreakpointAction(evt.getDMContext(), evt.getNumber());
+	        return;
+		}
+
+		if (e.getMIEvent() instanceof MIWatchpointTriggerEvent) {
+			MIWatchpointTriggerEvent evt = (MIWatchpointTriggerEvent) e.getMIEvent();
+	        performBreakpointAction(evt.getDMContext(), evt.getNumber());
+	        return;
+		}
+	}
+
+    private void performBreakpointAction(final IDMContext context, int number) {
+        // Identify the platform breakpoint
+        final ICBreakpoint breakpoint = findPlatformBreakpoint(context, number);
+
+        // Perform the actions asynchronously (otherwise we can have a deadlock...)
+        new Job("Breakpoint action") { //$NON-NLS-1$
+            { setSystem(true); }
+            @Override
+            protected IStatus run(IProgressMonitor monitor) {
+            	CDebugCorePlugin.getDefault().getBreakpointActionManager().executeActions(breakpoint, new BreakpointActionAdapter(getExecutor(), getServicesTracker(), context));
+                return Status.OK_STATUS;
+            };
+        }.schedule();
+    }
+
+    // Helper function to locate the platform breakpoint corresponding
+    // to the target breakpoint/watchpoint that was just hit
+
+    // FIXME: (Bug228703) Need a way to identify the correct context where the BP was hit
+    private ICBreakpoint findPlatformBreakpoint(IDMContext context, int targetBreakpointID) {
+    	// Hmm, the service has no tracking of MIBreakpointDMContext. So this workaround.
+    	IBreakpointsTargetDMContext btDMC = DMContexts.getAncestorOfType(context, IBreakpointsTargetDMContext.class);
+    	assert btDMC != null;
+    	IBreakpointDMContext dmc = new MIBreakpointDMContext(MIBreakpoints.this, new IDMContext[] { btDMC }, targetBreakpointID);
+
+		MIBreakpointsManager bpMediator = getServicesTracker().getService(MIBreakpointsManager.class);
+		ICBreakpoint cdtBP = (ICBreakpoint)bpMediator.getPlatformBreakpoint(btDMC, dmc);
+    	
+        return cdtBP;
+    }
+    
 	///////////////////////////////////////////////////////////////////////////
 	// IBreakpoints interface
 	///////////////////////////////////////////////////////////////////////////
@@ -763,7 +819,7 @@ public class MIBreakpoints extends AbstractDsfService implements IBreakpoints
 		// Retrieve the breakpoint parameters
 		// At this point, we know their are OK so there is no need to re-validate
 		MIBreakpointDMContext breakpointCtx = (MIBreakpointDMContext) dmc;
-        IBreakpointsTargetDMContext context = DMContexts.getAncestorOfType(dmc, IBreakpointsTargetDMContext.class);
+        final IBreakpointsTargetDMContext context = DMContexts.getAncestorOfType(dmc, IBreakpointsTargetDMContext.class);
 		final Map<Integer, MIBreakpointDMData> contextBreakpoints = fBreakpoints.get(context);
 		final int reference = breakpointCtx.getReference();
 		MIBreakpointDMData breakpoint = contextBreakpoints.get(reference);
@@ -782,11 +838,22 @@ public class MIBreakpoints extends AbstractDsfService implements IBreakpoints
         // Determine if the breakpoint condition changed
 		String conditionAttribute = CONDITION;
 		if (properties.containsKey(conditionAttribute)) {
-			String oldValue = breakpoint.getCondition();
+			final String oldValue = breakpoint.getCondition();
 			String newValue = (String) properties.get(conditionAttribute);
 			if (newValue == null) newValue = NULL_STRING;
 	        if (!oldValue.equals(newValue)) {
-	        	changeCondition(context, reference, newValue, countingRm);
+	        	changeCondition(context, reference, newValue, new RequestMonitor(getExecutor(), countingRm){
+
+					@Override
+					protected void handleError() {
+						// Failed to change the condition, restore the old condition.
+						// See comment in changeCondition() for more.
+						MIBreakpointsManager bpMediator = getServicesTracker().getService(MIBreakpointsManager.class);
+						final ICBreakpoint cdtBP = (ICBreakpoint)bpMediator.getPlatformBreakpoint(context, dmc);
+						rollbackCondition(cdtBP, oldValue);
+
+						countingRm.done();
+					}});
 	        	numberOfChanges++;
 	        }
 			properties.remove(conditionAttribute);
@@ -823,6 +890,26 @@ public class MIBreakpoints extends AbstractDsfService implements IBreakpoints
 
 		// Set the number of completions required
         countingRm.setDoneCount(numberOfChanges);
+	}
+
+	private void rollbackCondition(final ICBreakpoint cdtBP, final String oldValue) {
+		if (cdtBP == null)
+			return;
+		
+		new Job("rollback breakpont condition") { //$NON-NLS-1$
+			{ setSystem(true); }
+			@Override
+			protected IStatus run(IProgressMonitor monitor) {
+				try {
+					if (oldValue != null)
+						cdtBP.setCondition(oldValue);
+					else
+						cdtBP.setCondition(NULL_STRING);
+				} catch (CoreException e) {
+					// ignore
+				}
+				return Status.OK_STATUS;
+			}}.schedule(); 
 	}
 
 	/**
