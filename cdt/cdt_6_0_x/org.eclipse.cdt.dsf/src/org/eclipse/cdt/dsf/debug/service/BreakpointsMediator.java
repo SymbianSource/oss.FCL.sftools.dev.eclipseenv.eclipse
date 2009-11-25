@@ -648,7 +648,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 		return bpsInfo.toArray(new PlatformBreakpointInfo[bpsInfo.size()]);
 	}
 
-	protected void doBreakpointsAddedInExecutor(PlatformBreakpointInfo[] bpsInfo, Collection<IBreakpointsTargetDMContext> bpTargetDMCs, RequestMonitor rm) {
+	protected void doBreakpointsAddedInExecutor(PlatformBreakpointInfo[] bpsInfo, Collection<IBreakpointsTargetDMContext> bpTargetDMCs, final RequestMonitor rm) {
 		final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
 			new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpsInfo.length, 1);
 		
@@ -657,7 +657,11 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
                 protected void handleCompleted() {
                 	processPendingRequests();
                 	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.ADDED);
-                    super.handleCompleted();
+                	if (rm != null)
+                		// don't call this if "rm" is null as this will 
+                		// log errors if any and pack Eclipse error 
+                		// log view with errors useless to user. 
+                		super.handleCompleted();
                 }
             };	            	
         int processPendingCountingRmCount = 0;
@@ -936,7 +940,7 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 	}
 	
 	protected void doBreakpointsRemovedInExecutor(IBreakpoint[] bpCandidates, 
-			Collection<IBreakpointsTargetDMContext> targetContexts, RequestMonitor rm) {
+			Collection<IBreakpointsTargetDMContext> targetContexts, final RequestMonitor rm) {
 		
 		final Map<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>> eventBPs =  
 			new HashMap<IBreakpoint, Map<IBreakpointsTargetDMContext, ITargetBreakpointInfo[]>>(bpCandidates.length, 1);
@@ -946,7 +950,11 @@ public class BreakpointsMediator extends AbstractDsfService implements IBreakpoi
 			protected void handleCompleted() {
 				processPendingRequests();
             	fireUpdateBreakpointsStatus(eventBPs, BreakpointEventType.REMOVED);
-				super.handleCompleted();
+            	if (rm != null)
+            		// don't call this if "rm" is null as this will 
+            		// log errors if any and pack Eclipse error 
+            		// log view with errors useless to user. 
+            		super.handleCompleted();
 			}
 		};
 		int processPendingCountingRmCount = 0;
