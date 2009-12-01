@@ -363,6 +363,7 @@ public class CMainTab extends CLaunchConfigurationTab {
 
 		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
 		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
+		fDisableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Disable_build_button_tooltip")); //$NON-NLS-1$
 		fDisableBuildButton.setData(".uid", "CMainTab.DisableBuildButton");
 		fDisableBuildButton.addSelectionListener(new SelectionAdapter() {
 
