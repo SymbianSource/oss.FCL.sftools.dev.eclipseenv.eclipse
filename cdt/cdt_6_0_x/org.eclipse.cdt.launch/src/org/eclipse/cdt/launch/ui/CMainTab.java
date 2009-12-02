@@ -227,7 +227,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 				updateLaunchConfigurationDialog();
 			}
 		});
-		
 	}
 
 	/**
@@ -346,14 +345,12 @@ public class CMainTab extends CLaunchConfigurationTab {
 		buildGroup.setLayoutData(gridData);
 		buildGroup.setLayout(gridLayout);
 		buildGroup.setText(LaunchMessages.getString("CMainTab.Build_options")); //$NON-NLS-1$
-		buildGroup.setData(".uid", "CMainTab.buildGroup");
 		
 		createBuildConfigCombo(buildGroup, 2);
 		
 		fEnableBuildButton = new Button(buildGroup, SWT.RADIO);
 		fEnableBuildButton.setText(LaunchMessages.getString("CMainTab.Enable_build_button_label")); //$NON-NLS-1$
 		fEnableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Enable_build_button_tooltip")); //$NON-NLS-1$
-		fEnableBuildButton.setData(".uid", "CMainTab.EnablBuildButton");
 		fEnableBuildButton.addSelectionListener(new SelectionAdapter() {
 
 			public void widgetSelected(SelectionEvent evt) {
@@ -364,7 +361,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 		fDisableBuildButton = new Button(buildGroup, SWT.RADIO);
 		fDisableBuildButton.setText(LaunchMessages.getString("CMainTab.Disable_build_button_label")); //$NON-NLS-1$
 		fDisableBuildButton.setToolTipText(LaunchMessages.getString("CMainTab.Disable_build_button_tooltip")); //$NON-NLS-1$
-		fDisableBuildButton.setData(".uid", "CMainTab.DisableBuildButton");
 		fDisableBuildButton.addSelectionListener(new SelectionAdapter() {
 
 			public void widgetSelected(SelectionEvent evt) {
@@ -375,7 +371,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 		fWorkspaceSettingsButton = new Button(buildGroup, SWT.RADIO);
 		fWorkspaceSettingsButton.setText(LaunchMessages.getString("CMainTab.Workspace_settings_button_label")); //$NON-NLS-1$
 		fWorkspaceSettingsButton.setToolTipText(LaunchMessages.getString("CMainTab.Workspace_settings_button_tooltip")); //$NON-NLS-1$
-		fWorkspaceSettingsButton.setData(".uid", "CMainTab.WorkspaceSettingsButton");
 		fWorkspaceSettingsButton.addSelectionListener(new SelectionAdapter() {
 
 			public void widgetSelected(SelectionEvent evt) {
@@ -385,7 +380,6 @@ public class CMainTab extends CLaunchConfigurationTab {
 
 		fWorkpsaceSettingsLink = new Link(buildGroup, SWT.NONE); //$NON-NLS-1$
 		fWorkpsaceSettingsLink.setText(LaunchMessages.getString("CMainTab.Workspace_settings_link_label")); //$NON-NLS-1$
-		fWorkpsaceSettingsLink.setData(".uid", "CMainTab.WorkspaceSettingsLink");
 		fWorkpsaceSettingsLink.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				PreferencesUtil.createPreferenceDialogOn(
