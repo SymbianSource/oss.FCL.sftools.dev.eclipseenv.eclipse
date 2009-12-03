@@ -75,7 +75,7 @@ public class PDAServicesInitSequence extends Sequence {
                 // Create the breakpoint mediator and start tracking PDA breakpoints.
 
                 final BreakpointsMediator bpmService = new BreakpointsMediator(
-                    fSession, new PDABreakpointAttributeTranslator(fCommandControl.getContext()));
+                    fSession, new PDABreakpointAttributeTranslator());
                 bpmService.initialize(new RequestMonitor(getExecutor(), requestMonitor) {
                     @Override
                     protected void handleSuccess() {

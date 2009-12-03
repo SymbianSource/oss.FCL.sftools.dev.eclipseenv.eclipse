@@ -14,15 +14,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import org.eclipse.cdt.dsf.debug.service.BreakpointsMediator;
 import org.eclipse.cdt.dsf.debug.service.IBreakpointAttributeTranslator;
-import org.eclipse.cdt.dsf.debug.service.BreakpointsMediator.ITargetBreakpointInfo;
 import org.eclipse.cdt.dsf.debug.service.IBreakpoints.IBreakpointDMContext;
-import org.eclipse.cdt.dsf.debug.service.IBreakpoints.IBreakpointsTargetDMContext;
 import org.eclipse.cdt.examples.dsf.pda.PDAPlugin;
 import org.eclipse.cdt.examples.dsf.pda.breakpoints.PDALineBreakpoint;
 import org.eclipse.cdt.examples.dsf.pda.breakpoints.PDAWatchpoint;
@@ -59,18 +54,9 @@ public class PDABreakpointAttributeTranslator implements IBreakpointAttributeTra
         PDAWatchpoint.MODIFICATION
     };
 
-    private final IBreakpointsTargetDMContext fBreakpointsTargetDmc;
-    
-	private BreakpointsMediator fMediator;
-	
-	public PDABreakpointAttributeTranslator(IBreakpointsTargetDMContext breakpointsTargetDmc) {
-		fBreakpointsTargetDmc = breakpointsTargetDmc;
-	}
-	
     // PDA breakpoints translator doesn't keep any state and it doesn't 
     // need to initialize or clean up.
     public void initialize(BreakpointsMediator mediator) {
-    	fMediator = mediator;
     }
 
     public void dispose() {
@@ -142,38 +128,8 @@ public class PDABreakpointAttributeTranslator implements IBreakpointAttributeTra
         return bp.getModelIdentifier().equals(PDAPlugin.ID_PDA_DEBUG_MODEL);
     }
 
-    public void updateBreakpointStatus(final IBreakpoint bp) {
-    	Future<ITargetBreakpointInfo[]> future = fMediator.getSession().getExecutor().submit(new Callable<ITargetBreakpointInfo[]>() {
-    		public ITargetBreakpointInfo[] call() throws Exception {
-				return fMediator.getTargetBreakpoints(fBreakpointsTargetDmc, bp);
-    		}
-    	});
-    	
-    	
-    	ITargetBreakpointInfo[] targetBPs = null;
-		try {
-			targetBPs = future.get();
-		} catch (InterruptedException e1) {
-		} catch (ExecutionException e1) {
-			assert false;
-		}
-		
-    	try {
-    		boolean oldInstalled = ((PDALineBreakpoint)bp).getInstalled();
-    		boolean newInstalled = false;
-    		for (int i = 0; targetBPs != null && i < targetBPs.length; i++) {
-    			if (targetBPs[i].getTargetBreakpoint() != null) {
-    				newInstalled = true;
-    				break;
-    			}
-    		}
-    		if (oldInstalled != newInstalled) {
-    			((PDALineBreakpoint)bp).setInstalled(newInstalled);
-    		}
-    		System.out.println(bp.toString() + " installed = " + newInstalled);
-    	} catch (CoreException e) {
-    		// Marker access race condition: most likely the breakpoint has already been removed
-    	}
+    public void updateBreakpointStatus(IBreakpoint bp) {
+        // PDA breakpoints do not support status reporting
     }
 
 }
