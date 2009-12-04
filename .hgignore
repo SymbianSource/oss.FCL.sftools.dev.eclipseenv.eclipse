@@ -1,4 +1,5 @@
 # use glob syntax.
 syntax: glob
 bin
-
+runtime
+\.DS_Store
