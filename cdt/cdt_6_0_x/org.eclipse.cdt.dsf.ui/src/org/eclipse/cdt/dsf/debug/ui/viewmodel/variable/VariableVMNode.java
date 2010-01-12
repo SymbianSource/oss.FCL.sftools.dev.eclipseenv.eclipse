@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 
-import org.eclipse.cdt.core.IAddress;
 import org.eclipse.cdt.debug.internal.ui.CDebugImages;
 import org.eclipse.cdt.dsf.concurrent.ConfinedToDsfExecutor;
 import org.eclipse.cdt.dsf.concurrent.CountingRequestMonitor;
@@ -26,7 +25,6 @@ import org.eclipse.cdt.dsf.concurrent.DsfExecutor;
 import org.eclipse.cdt.dsf.concurrent.DsfRunnable;
 import org.eclipse.cdt.dsf.concurrent.IDsfStatusConstants;
 import org.eclipse.cdt.dsf.concurrent.ImmediateExecutor;
-import org.eclipse.cdt.dsf.concurrent.MultiRequestMonitor;
 import org.eclipse.cdt.dsf.concurrent.RequestMonitor;
 import org.eclipse.cdt.dsf.datamodel.DMContexts;
 import org.eclipse.cdt.dsf.datamodel.IDMContext;
@@ -37,6 +35,7 @@ import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionChangedDMEvent;
 import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionDMAddress;
 import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionDMContext;
 import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionDMData;
+import org.eclipse.cdt.dsf.debug.service.IExpressions.IExpressionDMLocation;
 import org.eclipse.cdt.dsf.debug.service.IMemory.IMemoryChangedEvent;
 import org.eclipse.cdt.dsf.debug.service.IRunControl.ISuspendedDMEvent;
 import org.eclipse.cdt.dsf.debug.service.IStack.IFrameDMContext;
@@ -51,6 +50,7 @@ import org.eclipse.cdt.dsf.debug.ui.viewmodel.numberformat.FormattedValueVMUtil;
 import org.eclipse.cdt.dsf.debug.ui.viewmodel.numberformat.IFormattedValueVMContext;
 import org.eclipse.cdt.dsf.internal.ui.DsfUIPlugin;
 import org.eclipse.cdt.dsf.service.DsfSession;
+import org.eclipse.cdt.dsf.ui.concurrent.ViewerCountingRequestMonitor;
 import org.eclipse.cdt.dsf.ui.concurrent.ViewerDataRequestMonitor;
 import org.eclipse.cdt.dsf.ui.viewmodel.VMDelta;
 import org.eclipse.cdt.dsf.ui.viewmodel.datamodel.AbstractDMVMProvider;
@@ -132,7 +132,7 @@ public class VariableVMNode extends AbstractExpressionVMNode
      *  
      * @since 2.0
      */    
-    private IElementLabelProvider fLabelProvider;
+    private final IElementLabelProvider fLabelProvider;
 
     public class VariableExpressionVMC extends DMVMContext implements IFormattedValueVMContext  {
         
@@ -375,9 +375,9 @@ public class VariableVMNode extends AbstractExpressionVMNode
             IDebugVMConstants.COLUMN_ID__ADDRESS,
             new LabelColumnInfo(new LabelAttribute[] { 
                 new LabelText(
-                    MessagesForVariablesVM.VariableVMNode_Address_column__text_format, 
+                    MessagesForVariablesVM.VariableVMNode_Location_column__text_format, 
                     new String[] { PROP_VARIABLE_ADDRESS }),
-                new LabelText(MessagesForVariablesVM.VariableVMNode_Address_column__Error__text_format, new String[] {}), 
+                new LabelText(MessagesForVariablesVM.VariableVMNode_Location_column__Error__text_format, new String[] {}), 
                 new LabelBackground(
                     DebugUITools.getPreferenceColor(IDebugUIConstants.PREF_CHANGED_VALUE_BACKGROUND).getRGB()) 
                 {
@@ -706,16 +706,10 @@ public class VariableVMNode extends AbstractExpressionVMNode
     @ConfinedToDsfExecutor("getSession().getExecutor()")
     protected void fillAddressDataProperties(IPropertiesUpdate update, IExpressionDMAddress address)
     { 
-	    IExpressionDMAddress expression = address;
-	    Object expAddress = expression.getAddress();
-
-	    String addrString = ""; //$NON-NLS-1$
-	    if (expAddress instanceof IAddress)
-	    	addrString = "0x" + ((IAddress)expAddress).toString(16); //$NON-NLS-1$
-	    else if (expAddress instanceof String)
-	    	addrString = (String)expAddress;
-
-	    update.setProperty(PROP_VARIABLE_ADDRESS, addrString);
+    	if (address instanceof IExpressionDMLocation)
+    		update.setProperty(PROP_VARIABLE_ADDRESS, ((IExpressionDMLocation)address).getLocation());
+    	else
+    		update.setProperty(PROP_VARIABLE_ADDRESS, "0x" + address.getAddress().toString(16)); //$NON-NLS-1$
     }
     
     public CellEditor getCellEditor(IPresentationContext context, String columnId, Object element, Composite parent) {
@@ -898,36 +892,35 @@ public class VariableVMNode extends AbstractExpressionVMNode
                     
                     // Create the MultiRequestMonitor to handle completion of the set of getModelData() calls.
                     
-                    final MultiRequestMonitor<DataRequestMonitor<IVariableDMData>> mrm =
-                        new MultiRequestMonitor<DataRequestMonitor<IVariableDMData>>(dsfExecutor, null) {
-                            @Override
-                            public void handleCompleted() {
-                                // Now that all the calls to getModelData() are complete, we create an
-                                // IExpressionDMContext object for each local variable name, saving them all
-                                // in an array.
+                    final CountingRequestMonitor crm = new ViewerCountingRequestMonitor(dsfExecutor, update) {
+                        @Override
+                        public void handleCompleted() {
+                            // Now that all the calls to getModelData() are complete, we create an
+                            // IExpressionDMContext object for each local variable name, saving them all
+                            // in an array.
 
-                                if (!isSuccess()) {
-                                    handleFailedUpdate(update);
-                                    return;
-                                }
-         
-                                IExpressionDMContext[] expressionDMCs = new IExpressionDMContext[localsDMData.size()];
-                                
-                                int i = 0;
-                                
-                                for (IVariableDMData localDMData : localsDMData) {
-                                    expressionDMCs[i++] = expressionService.createExpression(frameDmc, localDMData.getName());
-                                }
-
-                                // Lastly, we fill the update from the array of view model context objects
-                                // that reference the ExpressionDMC objects for the local variables.  This is
-                                // the last code to run for a given call to updateElementsInSessionThread().
-                                // We can now leave anonymous-inner-class hell.
-
-                                fillUpdateWithVMCs(update, expressionDMCs);
-                                update.done();
+                            if (!isSuccess()) {
+                                handleFailedUpdate(update);
+                                return;
                             }
+     
+                            IExpressionDMContext[] expressionDMCs = new IExpressionDMContext[localsDMData.size()];
+                            
+                            int i = 0;
+                            for (IVariableDMData localDMData : localsDMData) {
+                                expressionDMCs[i++] = expressionService.createExpression(frameDmc, localDMData.getName());
+                            }
+
+                            // Lastly, we fill the update from the array of view model context objects
+                            // that reference the ExpressionDMC objects for the local variables.  This is
+                            // the last code to run for a given call to updateElementsInSessionThread().
+                            // We can now leave anonymous-inner-class hell.
+
+                            fillUpdateWithVMCs(update, expressionDMCs);
+                            update.done();
+                        }
                     };
+                    int countRM = 0;
                     
                     // Perform a set of getModelData() calls, one for each local variable's data model
                     // context object.  In the handleCompleted() method of the DataRequestMonitor, add the
@@ -935,18 +928,18 @@ public class VariableVMNode extends AbstractExpressionVMNode
                     
                     for (IVariableDMContext localDMC : localsDMCs) {
                         DataRequestMonitor<IVariableDMData> rm =
-                            new ViewerDataRequestMonitor<IVariableDMData>(dsfExecutor, update) {
+                            new DataRequestMonitor<IVariableDMData>(dsfExecutor, crm) {
                                 @Override
-                                public void handleCompleted() {
+                                public void handleSuccess() {
                                     localsDMData.add(getData());
-                                    mrm.requestMonitorDone(this);
+                                    crm.done();
                                 }
                         };
                         
-                        mrm.add(rm);
-                        
                         stackFrameService.getVariableData(localDMC, rm);
+                        countRM++;
                     }
+                    crm.setDoneCount(countRM);
                 }
         };
 
@@ -963,7 +956,6 @@ public class VariableVMNode extends AbstractExpressionVMNode
              (e instanceof PropertyChangeEvent &&
               ((PropertyChangeEvent)e).getProperty() == IDebugVMConstants.PROP_FORMATTED_VALUE_FORMAT_PREFERENCE) ) 
         {
-            // Create a delta that the whole register group has changed.
             return IModelDelta.CONTENT;
         } 
 
@@ -980,7 +972,6 @@ public class VariableVMNode extends AbstractExpressionVMNode
              (e instanceof PropertyChangeEvent &&
               ((PropertyChangeEvent)e).getProperty() == IDebugVMConstants.PROP_FORMATTED_VALUE_FORMAT_PREFERENCE) ) 
         {
-            // Create a delta that the whole register group has changed.
             parentDelta.setFlags(parentDelta.getFlags() | IModelDelta.CONTENT);
         } 
 
