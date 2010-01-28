@@ -2448,6 +2448,13 @@ public abstract class DisassemblyPart extends WorkbenchPart implements IDisassem
 
 	@DsfServiceEventHandler
 	public void handleEvent(IExitedDMEvent event) {
+		// Note we may get more than one ExitedDMEvent for contexts 
+		// (threads, processes, etc.) in this debug session. So check
+		// for NPE.
+		// This is already fixed in CDT head....01/28/10
+		if (fTargetContext == null)
+			return;
+		
 		final IExecutionDMContext context= event.getDMContext();
 		if (context.equals(fTargetContext)
 				|| DMContexts.isAncestorOf(fTargetContext, context)) {
