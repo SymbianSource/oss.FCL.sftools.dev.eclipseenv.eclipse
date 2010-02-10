@@ -231,14 +231,16 @@ public class CProjectDescriptionManager implements ICProjectDescriptionManager {
 		public boolean handlesEvent(int eventType){
 			return (eventType & fEventTypes) != 0;
 		}
-		@Override
-		public int hashCode() {
-			return fListener.hashCode();
-		}
-		@Override
-		public boolean equals(Object obj) {
-			return fListener.equals(obj);
-		}
+		
+		// Can't use these due to implementation of CopyOnWriteArraySet.remove()
+//		@Override
+//		public int hashCode() {
+//			return fListener.hashCode();
+//		}
+//		@Override
+//		public boolean equals(Object obj) {
+//			return fListener.equals(obj);
+//		}
 	}
 
 	private volatile Map<String, CConfigurationDataProviderDescriptor> fProviderMap;
@@ -2088,7 +2090,14 @@ public class CProjectDescriptionManager implements ICProjectDescriptionManager {
 	}
 
 	public void removeCProjectDescriptionListener(ICProjectDescriptionListener listener) {
-		fListeners.remove(listener);
+//		fListeners.remove(listener);
+//		Note: can't use remove directly due to the implementation of CopyOnWriteArraySet.remove()
+		for (ListenerDescriptor listenerDescriptor : fListeners) {
+			if (listenerDescriptor.fListener.equals(listener)) {
+				fListeners.remove(listenerDescriptor);
+				break;
+			}
+		}
 	}
 
 	public void notifyListeners(CProjectDescriptionEvent event){
