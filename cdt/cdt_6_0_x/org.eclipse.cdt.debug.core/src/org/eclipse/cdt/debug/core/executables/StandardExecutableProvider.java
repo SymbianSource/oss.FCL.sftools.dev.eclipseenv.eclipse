@@ -55,7 +55,7 @@ public class StandardExecutableProvider implements IProjectExecutablesProvider {
 
 			for (IBinary binary : binaries) {
 				if (progress.isCanceled()) {
-					break;
+					return null;
 				}
 
 				if (binary.isExecutable() || binary.isSharedLib()) {
