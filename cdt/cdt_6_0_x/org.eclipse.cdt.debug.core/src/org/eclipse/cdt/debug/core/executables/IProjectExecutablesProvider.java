@@ -38,7 +38,7 @@ public interface IProjectExecutablesProvider {
 	 * Get the list of executables for the given project
 	 * @param project the project to get the executables for
 	 * @param monitor progress monitor
-	 * @return the list of executables (which may be empty), or null if request is cancelled
+	 * @return the list of executables (which may be empty)
 	 */
 	List<Executable> getExecutables(IProject project, IProgressMonitor monitor);
 
