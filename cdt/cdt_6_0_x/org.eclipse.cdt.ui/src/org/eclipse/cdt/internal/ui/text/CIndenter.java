@@ -833,7 +833,7 @@ public final class CIndenter {
 					} else if ((prevToken == Symbols.TokenEQUAL || prevToken == Symbols.TokenRBRACKET) &&
 							!fPrefs.prefIndentBracesForArrays) {
 						cancelIndent= true;
-					} else if (prevToken == Symbols.TokenRPAREN && fPrefs.prefIndentBracesForMethods) {
+					} else if ((prevToken == Symbols.TokenRPAREN || prevToken == Symbols.TokenCONST) && fPrefs.prefIndentBracesForMethods) {
 						extraIndent= 1;
 					} else if (prevToken == Symbols.TokenIDENT && fPrefs.prefIndentBracesForTypes) {
 						extraIndent= 1;
@@ -1035,6 +1035,13 @@ public final class CIndenter {
 		case Symbols.TokenTRY:
 			return skipToStatementStart(danglingElse, false);
 
+		case Symbols.TokenCONST:
+			nextToken();
+			if (fToken != Symbols.TokenRPAREN) {
+				return skipToPreviousListItemOrListStart();
+			}
+			// could be const method decl
+			//$FALL-THROUGH$
 		case Symbols.TokenRPAREN:
 			if (skipScope(Symbols.TokenLPAREN, Symbols.TokenRPAREN)) {
 				int scope= fPosition;
